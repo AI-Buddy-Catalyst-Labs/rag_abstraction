@@ -11,7 +11,7 @@ The RAG library is designed as a modular, plug-and-play system that abstracts al
 **Module Structure:**
 
 ```text
-rag_library/
+insta_rag/
 ├── core/                      # Central orchestration layer
 │   ├── client.py              # Main RAGClient - entry point for all operations
 │   └── config.py              # Configuration management and validation
