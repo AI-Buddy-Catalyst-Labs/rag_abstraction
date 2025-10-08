@@ -228,7 +228,7 @@ Client Ready for Operations
 
 **Processing Flow:**
 
-<!-- ```text
+```text
 Documents Input (PDF/Text/Binary)
          ↓
 ┌────────────────────────────────┐
@@ -280,32 +280,6 @@ Documents Input (PDF/Text/Binary)
     - Track performance metrics
          ↓
 Response: Success with chunk details
-``` -->
-
-```mermaid
-graph TD
-    subgraph "Document Processing Pipeline"
-        direction TB
-
-        Input(["Documents Input<br/>(PDF/Text/Binary)"])
-
-        %% --- PHASES ---
-        Phase1["<strong>PHASE 1: Document Loading</strong><br/><br/>• Read files from paths<br/>• Decode binary content<br/>• Validate file formats"]
-        Phase2["<strong>PHASE 2: Text Extraction</strong><br/><br/>• Extract text using pdfplumber (primary)<br/>• Fallback to PyPDF2 if needed<br/>• Detect encryption/corruption<br/>• Validate text quality"]
-        Phase3["<strong>PHASE 3: Semantic Chunking</strong><br/><br/>• Check if single chunk sufficient<br/>• Apply semantic boundary detection<br/>• Enforce token limits (1000 max)<br/>• Add 20% overlap between chunks<br/>• Fallback to character-based if needed"]
-        Phase4["<strong>PHASE 4: Chunk Validation</strong><br/><br/>• Verify token counts<br/>• Detect garbled text<br/>• Check minimum length<br/>• Attach metadata to each chunk"]
-        Phase5["<strong>PHASE 5: Batch Embedding</strong><br/><br/>• Generate embeddings in batches<br/>• Use OpenAI text-embedding-3-large<br/>• 3072-dimensional vectors<br/>• Rate limit handling"]
-        Phase6["<strong>PHASE 6: Vector Storage</strong><br/><br/>• Store in Qdrant collection<br/>• Upsert points with metadata<br/>• Create indexes if needed<br/>• Track performance metrics"]
-
-        Response(["Response: Success with chunk details"])
-
-        %% --- CONNECTIONS ---
-        Input --> Phase1 --> Phase2 --> Phase3 --> Phase4 --> Phase5 --> Phase6 --> Response
-    end
-
-    %% --- STYLING ---
-    classDef phaseNode text-align:left,fill:#f8f8f8,stroke:#333,stroke-width:2px
-    class Phase1,Phase2,Phase3,Phase4,Phase5,Phase6 phaseNode
 ```
 
 **Response Data Includes:**
@@ -378,7 +352,7 @@ graph TD
 
 **1\. Replace Strategy**
 
-<!-- ```text
+```text
 Identify Target Documents (via filters/IDs)
          ↓
 Delete Existing Chunks from Qdrant
@@ -392,24 +366,11 @@ Generate New Embeddings
 Store New Chunks in Qdrant
          ↓
 Return: Deleted count + Added count
-``` -->
-
-```mermaid
-graph TD
-    A["Identify Target Documents<br/>(via filters/IDs)"]
-    B["Delete Existing Chunks from Qdrant"]
-    C["Process New Documents"]
-    D["Create New Chunks with Semantic Chunking"]
-    E["Generate New Embeddings"]
-    F["Store New Chunks in Qdrant"]
-    G["Return: Deleted count + Added count"]
-
-    A --> B --> C --> D --> E --> F --> G;
 ```
 
 **2\. Append Strategy**
 
-<!-- ```text
+```text
 Keep All Existing Documents
          ↓
 Process New Documents
@@ -421,23 +382,11 @@ Generate Embeddings
 Add to Collection (No Deletion)
          ↓
 Return: Added count
-``` -->
-
-```mermaid
-graph TD
-    A["Keep All Existing Documents"]
-    B["Process New Documents"]
-    C["Create New Chunks"]
-    D["Generate Embeddings"]
-    E["Add to Collection<br/>(No Deletion)"]
-    F["Return: Added count"]
-
-    A --> B --> C --> D --> E --> F;
 ```
 
 **3\. Delete Strategy**
 
-<!-- ```text
+```text
 Identify Target Documents (via filters/IDs)
          ↓
 Delete All Matching Chunks from Qdrant
@@ -445,16 +394,6 @@ Delete All Matching Chunks from Qdrant
 Clean Up References
          ↓
 Return: Deleted count
-``` -->
-
-```mermaid
-graph TD
-    A["Identify Target Documents<br/>(via filters/IDs)"]
-    B["Delete All Matching Chunks from Qdrant"]
-    C["Clean Up References"]
-    D["Return: Deleted count"]
-
-    A --> B --> C --> D;
 ```
 
 **4\. Upsert Strategy**
@@ -550,7 +489,7 @@ graph TD
 
 **Retrieval Pipeline Flow:**
 
-<!-- ```text
+```text
 User Query
     ↓
 ┌─────────────────────────────────────────────┐
@@ -605,32 +544,6 @@ User Query
     - Include all metadata and scores
     ↓
 Response: Top-k relevant chunks with scores
-``` -->
-
-```mermaid
-graph TD
-    subgraph "Hybrid Search & Reranking Pipeline"
-        direction TB
-
-        Start("User Query")
-
-        %% --- STEPS ---
-        Step1["<strong>STEP 1: Query Generation</strong><br/><br/>• LLM generates optimized search query<br/>• LLM generates HyDE (hypothetical answer)<br/>• Single API call using structured output<br/>• Result: 2 queries (standard + HyDE)"]
-        Step2["<strong>STEP 2: Vector Search</strong><br/><br/>• Embed both queries using OpenAI<br/>• Search Qdrant with each query<br/>• 25 chunks per query = 50 chunks total<br/>• Apply metadata filters<br/>• Track vector similarity scores"]
-        Step3["<strong>STEP 3: Keyword Search (BM25)</strong><br/><br/>• Tokenize original query<br/>• BM25 algorithm on document corpus<br/>• Retrieve 50 additional chunks<br/>• Lexical matching for exact terms<br/>• Apply same metadata filters"]
-        Step4["<strong>STEP 4: Combine & Deduplicate</strong><br/><br/>• Pool: 50 vector + 50 keyword = ~100 chunks<br/>• Remove duplicates by document_id or content hash<br/>• Result: ~100 unique chunks"]
-        Step5["<strong>STEP 5: Reranking</strong><br/><br/>• Send all unique chunks to Cohere Rerank 3.5<br/>• Cross-encoder scoring for relevance<br/>• Considers query-chunk semantic relationship<br/>• Produces 0-1 relevance scores"]
-        Step6["<strong>STEP 6: Selection & Formatting</strong><br/><br/>• Sort by reranker scores (highest first)<br/>• Select top_k chunks (default: 20)<br/>• Apply score_threshold if specified<br/>• Return full chunks (no truncation)<br/>• Include all metadata and scores"]
-
-        Response("Response: Top-k relevant chunks with scores")
-
-        %% --- CONNECTIONS ---
-        Start --> Step1 --> Step2 --> Step3 --> Step4 --> Step5 --> Step6 --> Response
-    end
-
-    %% --- STYLING ---
-    classDef stepNode text-align:left,fill:#E8F8F5,stroke:#16A085,stroke-width:2px
-    class Step1,Step2,Step3,Step4,Step5,Step6 stepNode
 ```
 
 **Response Data Includes:**
