@@ -1,5 +1,5 @@
 [project]
-name = "aibuddy_rag"
+name = "rag_abstraction"
 version = "0.0.1"
 description = "A RAG (Retrieval-Augmented Generation) library for document processing and retrieval."
 authors = [
