@@ -1,6 +1,6 @@
 # RAG Library Design for Doc Directors Pipeline
 
-## 1\. Library Architecture
+## 1. Library Architecture
 
 ### Overview
 
@@ -11,7 +11,7 @@ The RAG library is designed as a modular, plug-and-play system that abstracts al
 **Module Structure:**
 
 ```text
-rag_library/
+insta_rag/
 ├── core/                      # Central orchestration layer
 │   ├── client.py              # Main RAGClient - entry point for all operations
 │   └── config.py              # Configuration management and validation
@@ -91,27 +91,27 @@ graph TD
 
 ### Design Principles
 
-**1\. Interface-Based Design**
+**1. Interface-Based Design**
 
-- All major components (chunking, embedding, vector DB, reranking) have abstract base interfaces  
-- Enables easy swapping of implementations without affecting client code  
+- All major components (chunking, embedding, vector DB, reranking) have abstract base interfaces
+- Enables easy swapping of implementations without affecting client code
 - Future providers can be added by implementing the base interface
 
-**2\. Configuration-Driven Behavior**
+**2. Configuration-Driven Behavior**
 
-- Single configuration object controls all library behavior  
-- All parameters have sensible defaults based on research best practices  
+- Single configuration object controls all library behavior
+- All parameters have sensible defaults based on research best practices
 - Configuration is validated at initialization to fail fast
 
-**3\. Extensibility Without Breaking Changes**
+**3. Extensibility Without Breaking Changes**
 
-- New chunking methods, embedding providers, or vector databases can be added  
-- Existing code continues to work as new options are introduced  
+- New chunking methods, embedding providers, or vector databases can be added
+- Existing code continues to work as new options are introduced
 - Version-controlled feature flags for experimental capabilities
 
----
+______________________________________________________________________
 
-## 2\. Core API Operations
+## 2. Core API Operations
 
 The library exposes three primary operations that handle the complete RAG lifecycle:
 
@@ -123,49 +123,49 @@ The library exposes three primary operations that handle the complete RAG lifecy
 
 #### A. Vector Database Configuration
 
-- Connection details for Qdrant instance  
-- API authentication credentials  
+- Connection details for Qdrant instance
+- API authentication credentials
 - Collection management settings
 
 #### B. Embedding Configuration
 
-- Provider selection (OpenAI, with future support for Cohere, Azure, etc.)  
-- Model specification (default: text-embedding-3-large)  
-- Dimensionality settings (3072 dimensions)  
+- Provider selection (OpenAI, with future support for Cohere, Azure, etc.)
+- Model specification (default: text-embedding-3-large)
+- Dimensionality settings (3072 dimensions)
 - API credentials
 
 #### C. Reranking Configuration
 
-- Provider selection (Cohere Rerank 3.5, with future cross-encoder support)  
-- Model specification  
-- API credentials  
+- Provider selection (Cohere Rerank 3.5, with future cross-encoder support)
+- Model specification
+- API credentials
 - Top-k selection parameters
 
 #### D. LLM Configuration (for Query Generation)
 
-- Provider selection (OpenAI GPT-4, with future Anthropic, Azure support)  
-- Model specification  
+- Provider selection (OpenAI GPT-4, with future Anthropic, Azure support)
+- Model specification
 - API credentials for HyDE query generation
 
 #### E. Chunking Strategy Configuration
 
-- Method selection (semantic chunking as primary)  
-- Maximum chunk size (default: 1000 tokens)  
-- Overlap percentage (default: 20%)  
+- Method selection (semantic chunking as primary)
+- Maximum chunk size (default: 1000 tokens)
+- Overlap percentage (default: 20%)
 - Semantic breakpoint threshold (95th percentile)
 
 #### F. PDF Processing Configuration
 
-- Parser selection (pdfplumber, with future Chunkr, Unstructured.io support)  
-- Text extraction settings  
+- Parser selection (pdfplumber, with future Chunkr, Unstructured.io support)
+- Text extraction settings
 - Quality validation parameters
 
 #### G. Retrieval Configuration
 
-- Vector search limits (25 chunks per query)  
-- Keyword search limits (50 BM25 chunks)  
-- Feature toggles (HyDE, keyword search)  
-- Final reranking top-k (20 chunks)  
+- Vector search limits (25 chunks per query)
+- Keyword search limits (50 BM25 chunks)
+- Feature toggles (HyDE, keyword search)
+- Final reranking top-k (20 chunks)
 - Distance metric (cosine similarity)
 
 **Initialization Flow:**
@@ -187,7 +187,7 @@ Verify System Health
 Client Ready for Operations
 ```
 
----
+______________________________________________________________________
 
 ### 2.2 Knowledge Base Input Operation
 
@@ -197,33 +197,33 @@ Client Ready for Operations
 
 **Input Parameters:**
 
-1. **documents**: List of document inputs  
+1. **documents**: List of document inputs
 
-   - Accepts files (PDFs), raw text, or binary content  
-   - Each document can have individual metadata  
+   - Accepts files (PDFs), raw text, or binary content
+   - Each document can have individual metadata
    - Supports batch processing of multiple documents
 
-2. **collection\_name**: Target Qdrant collection  
+1. **collection_name**: Target Qdrant collection
 
-   - Auto-creates collection if it doesn't exist  
+   - Auto-creates collection if it doesn't exist
    - Manages collection schema and indexing
 
-3. **metadata**: Global metadata for all chunks  
+1. **metadata**: Global metadata for all chunks
 
-   - User identification (user\_id)  
-   - Document categorization (document\_type, is\_standalone)  
-   - Template association (template\_id)  
+   - User identification (user_id)
+   - Document categorization (document_type, is_standalone)
+   - Template association (template_id)
    - Any custom fields
 
-4. **batch\_size**: Processing batch size (default: 100\)  
+1. **batch_size**: Processing batch size (default: 100)
 
-   - Controls memory usage during embedding generation  
+   - Controls memory usage during embedding generation
    - Optimizes API calls to embedding provider
 
-5. **validate\_chunks**: Quality validation toggle (default: True)  
+1. **validate_chunks**: Quality validation toggle (default: True)
 
-   - Token count validation  
-   - Garbled text detection  
+   - Token count validation
+   - Garbled text detection
    - Minimum length requirements
 
 **Processing Flow:**
@@ -284,28 +284,28 @@ Response: Success with chunk details
 
 **Response Data Includes:**
 
-- Success status and document count  
-- Total chunks created with individual IDs  
-- Complete metadata for each chunk (document\_id, source, chunk\_index, token counts, etc.)  
-- Processing statistics (timings, token usage, failures)  
+- Success status and document count
+- Total chunks created with individual IDs
+- Complete metadata for each chunk (document_id, source, chunk_index, token counts, etc.)
+- Processing statistics (timings, token usage, failures)
 - Any errors encountered during processing
 
 **Error Handling:**
 
-- **PDFEncryptedError**: Password-protected PDFs detected  
-- **PDFCorruptedError**: Invalid or damaged PDF files  
-- **PDFEmptyError**: No extractable text content  
-- **ChunkingError**: Semantic chunking failures  
-- **EmbeddingError**: API failures during embedding generation  
+- **PDFEncryptedError**: Password-protected PDFs detected
+- **PDFCorruptedError**: Invalid or damaged PDF files
+- **PDFEmptyError**: No extractable text content
+- **ChunkingError**: Semantic chunking failures
+- **EmbeddingError**: API failures during embedding generation
 - **VectorDBError**: Qdrant connection or storage issues
 
 **Use Cases:**
 
-1. **Business Document Upload**: User-specific PDFs with user\_id metadata  
-2. **Website Content Storage**: Scraped text with source URL tracking  
-3. **Knowledge Base Creation**: Template-specific documents with template\_id
+1. **Business Document Upload**: User-specific PDFs with user_id metadata
+1. **Website Content Storage**: Scraped text with source URL tracking
+1. **Knowledge Base Creation**: Template-specific documents with template_id
 
----
+______________________________________________________________________
 
 ### 2.3 Knowledge Base Update Operation
 
@@ -315,42 +315,42 @@ Response: Success with chunk details
 
 **Input Parameters:**
 
-1. **collection\_name**: Target Qdrant collection  
+1. **collection_name**: Target Qdrant collection
 
-2. **update\_strategy**: Operation type  
+1. **update_strategy**: Operation type
 
-   - **replace**: Delete existing documents and add new ones  
-   - **append**: Add new documents without deleting  
-   - **delete**: Remove documents matching criteria  
+   - **replace**: Delete existing documents and add new ones
+   - **append**: Add new documents without deleting
+   - **delete**: Remove documents matching criteria
    - **upsert**: Update if exists, insert if doesn't
 
-3. **filters**: Metadata-based selection criteria  
+1. **filters**: Metadata-based selection criteria
 
-   - Filter by user\_id, document\_type, template\_id, etc.  
+   - Filter by user_id, document_type, template_id, etc.
    - Supports complex filter combinations
 
-4. **document\_ids**: Specific document IDs to target  
+1. **document_ids**: Specific document IDs to target
 
-   - Alternative to metadata filters  
+   - Alternative to metadata filters
    - Precise document selection
 
-5. **new\_documents**: Replacement or additional documents  
+1. **new_documents**: Replacement or additional documents
 
    - Used with replace, append, and upsert strategies
 
-6. **metadata\_updates**: Metadata field updates  
+1. **metadata_updates**: Metadata field updates
 
-   - Update metadata without reprocessing content  
+   - Update metadata without reprocessing content
    - Useful for status changes, tags, timestamps
 
-7. **reprocess\_chunks**: Content reprocessing toggle  
+1. **reprocess_chunks**: Content reprocessing toggle
 
-   - If True: Regenerate chunks and embeddings  
+   - If True: Regenerate chunks and embeddings
    - If False: Metadata-only updates
 
 **Update Strategies Explained:**
 
-**1\. Replace Strategy**
+**1. Replace Strategy**
 
 ```text
 Identify Target Documents (via filters/IDs)
@@ -368,7 +368,7 @@ Store New Chunks in Qdrant
 Return: Deleted count + Added count
 ```
 
-**2\. Append Strategy**
+**2. Append Strategy**
 
 ```text
 Keep All Existing Documents
@@ -384,7 +384,7 @@ Add to Collection (No Deletion)
 Return: Added count
 ```
 
-**3\. Delete Strategy**
+**3. Delete Strategy**
 
 ```text
 Identify Target Documents (via filters/IDs)
@@ -396,7 +396,7 @@ Clean Up References
 Return: Deleted count
 ```
 
-**4\. Upsert Strategy**
+**4. Upsert Strategy**
 
 <!-- ```text
 Check if Documents Exist
@@ -423,27 +423,27 @@ graph TD
 
 **Response Data Includes:**
 
-- Success status  
-- Strategy used  
-- Documents affected count  
-- Chunks deleted, added, and updated counts  
-- List of updated document IDs  
+- Success status
+- Strategy used
+- Documents affected count
+- Chunks deleted, added, and updated counts
+- List of updated document IDs
 - Any errors encountered
 
 **Error Handling:**
 
-- **CollectionNotFoundError**: Target collection doesn't exist  
-- **NoDocumentsFoundError**: No documents match filters/IDs  
+- **CollectionNotFoundError**: Target collection doesn't exist
+- **NoDocumentsFoundError**: No documents match filters/IDs
 - **VectorDBError**: Qdrant operation failures
 
 **Use Cases:**
 
-1. **Document Replacement**: User uploads updated version of existing document  
-2. **Metadata Updates**: Mark documents as archived or add tags  
-3. **Bulk Deletion**: Remove all documents for a specific user or template  
-4. **Incremental Additions**: Add new documents to existing knowledge base
+1. **Document Replacement**: User uploads updated version of existing document
+1. **Metadata Updates**: Mark documents as archived or add tags
+1. **Bulk Deletion**: Remove all documents for a specific user or template
+1. **Incremental Additions**: Add new documents to existing knowledge base
 
----
+______________________________________________________________________
 
 ### 2.4 Knowledge Base Retrieval Operation
 
@@ -453,39 +453,39 @@ graph TD
 
 **Input Parameters:**
 
-1. **query**: User's search question or query string  
+1. **query**: User's search question or query string
 
-2. **collection\_name**: Target Qdrant collection to search  
+1. **collection_name**: Target Qdrant collection to search
 
-3. **filters**: Metadata filters to narrow search scope  
+1. **filters**: Metadata filters to narrow search scope
 
-   - Filter by user\_id, template\_id, document\_type, etc.  
+   - Filter by user_id, template_id, document_type, etc.
    - Ensures user isolation and template-specific retrieval
 
-4. **top\_k**: Final number of chunks to return (default: 20\)  
+1. **top_k**: Final number of chunks to return (default: 20)
 
-5. **enable\_reranking**: Use Cohere reranking (default: True)  
+1. **enable_reranking**: Use Cohere reranking (default: True)
 
-   - Improves relevance ranking significantly  
+   - Improves relevance ranking significantly
    - Slight latency increase
 
-6. **enable\_keyword\_search**: Include BM25 search (default: True)  
+1. **enable_keyword_search**: Include BM25 search (default: True)
 
-   - Adds lexical matching to semantic search  
+   - Adds lexical matching to semantic search
    - Better for exact term matches
 
-7. **enable\_hyde**: Use HyDE query generation (default: True)  
+1. **enable_hyde**: Use HyDE query generation (default: True)
 
-   - Generates hypothetical answer for better retrieval  
+   - Generates hypothetical answer for better retrieval
    - Research-proven improvement
 
-8. **score\_threshold**: Minimum relevance score filter  
+1. **score_threshold**: Minimum relevance score filter
 
    - Optional quality gate for results
 
-9. **return\_full\_chunks**: Return complete vs truncated content  
+1. **return_full_chunks**: Return complete vs truncated content
 
-10. **deduplicate**: Remove duplicate chunks (default: True)
+1. **deduplicate**: Remove duplicate chunks (default: True)
 
 **Retrieval Pipeline Flow:**
 
@@ -548,197 +548,197 @@ Response: Top-k relevant chunks with scores
 
 **Response Data Includes:**
 
-1. **Success status and original query**  
+1. **Success status and original query**
 
-2. **Generated queries**: Standard and HyDE queries used  
+1. **Generated queries**: Standard and HyDE queries used
 
-3. **Retrieved chunks** (for each chunk):  
+1. **Retrieved chunks** (for each chunk):
 
-   - Full content text  
-   - Complete metadata (source, document\_id, chunk\_index, etc.)  
-   - Relevance score (from reranker, 0-1)  
-   - Vector similarity score  
-   - BM25 keyword score (if applicable)  
-   - Rank position (1 to top\_k)
+   - Full content text
+   - Complete metadata (source, document_id, chunk_index, etc.)
+   - Relevance score (from reranker, 0-1)
+   - Vector similarity score
+   - BM25 keyword score (if applicable)
+   - Rank position (1 to top_k)
 
-4. **Retrieval statistics**:  
+1. **Retrieval statistics**:
 
-   - Total chunks retrieved (before dedup/reranking)  
-   - Vector search chunk count  
-   - Keyword search chunk count  
-   - Chunks after deduplication  
-   - Chunks after reranking  
-   - Timing breakdown:  
-     - Query generation time  
-     - Vector search time  
-     - Keyword search time  
-     - Reranking time  
+   - Total chunks retrieved (before dedup/reranking)
+   - Vector search chunk count
+   - Keyword search chunk count
+   - Chunks after deduplication
+   - Chunks after reranking
+   - Timing breakdown:
+     - Query generation time
+     - Vector search time
+     - Keyword search time
+     - Reranking time
      - Total time
 
-5. **Source information**:  
+1. **Source information**:
 
-   - List of source documents  
-   - Chunk count per source  
+   - List of source documents
+   - Chunk count per source
    - Average relevance per source
 
 **Error Handling:**
 
-- **CollectionNotFoundError**: Collection doesn't exist  
-- **QueryGenerationError**: LLM query generation failure  
-- **EmbeddingError**: Query embedding failure  
-- **RerankingError**: Cohere API issues  
+- **CollectionNotFoundError**: Collection doesn't exist
+- **QueryGenerationError**: LLM query generation failure
+- **EmbeddingError**: Query embedding failure
+- **RerankingError**: Cohere API issues
 - **VectorDBError**: Qdrant search failures
 
 **Retrieval Modes:**
 
-**1\. Full Hybrid (Default \- Best Quality)**
+**1. Full Hybrid (Default - Best Quality)**
 
-- HyDE enabled \+ Vector search \+ Keyword search \+ Reranking  
-- Retrieves \~100 chunks, reranks to top 20  
+- HyDE enabled + Vector search + Keyword search + Reranking
+- Retrieves ~100 chunks, reranks to top 20
 - Best accuracy, slightly higher latency
 
-**2\. Hybrid Without HyDE**
+**2. Hybrid Without HyDE**
 
-- Standard vector \+ Keyword search \+ Reranking  
+- Standard vector + Keyword search + Reranking
 - Faster query generation, still excellent results
 
-**3\. Vector Only with Reranking**
+**3. Vector Only with Reranking**
 
-- Pure semantic search \+ Reranking  
+- Pure semantic search + Reranking
 - Good for conceptual queries, misses exact terms
 
-**4\. Fast Vector Search**
+**4. Fast Vector Search**
 
-- Vector search only, no reranking, no keyword  
-- Fastest retrieval, lower accuracy  
+- Vector search only, no reranking, no keyword
+- Fastest retrieval, lower accuracy
 - Good for preview/suggestion use cases
 
 **Use Cases:**
 
-1. **Document Generation Context**: Retrieve business documents for AI writing  
-2. **Question Answering**: Find specific information from knowledge base  
-3. **Template-Specific Retrieval**: Get template-associated knowledge  
-4. **User-Specific Search**: Find documents belonging to specific user
+1. **Document Generation Context**: Retrieve business documents for AI writing
+1. **Question Answering**: Find specific information from knowledge base
+1. **Template-Specific Retrieval**: Get template-associated knowledge
+1. **User-Specific Search**: Find documents belonging to specific user
 
----
+______________________________________________________________________
 
-## 3\. Data Models
+## 3. Data Models
 
 ### 3.1 Core Data Structures
 
 #### DocumentInput
 
-- Represents an input document for processing  
-- Fields:  
-  - `source`: File path, text string, or binary content  
-  - `source_type`: "file", "text", or "binary"  
-  - `metadata`: Optional document-specific metadata  
+- Represents an input document for processing
+- Fields:
+  - `source`: File path, text string, or binary content
+  - `source_type`: "file", "text", or "binary"
+  - `metadata`: Optional document-specific metadata
   - `custom_chunking`: Optional chunking override settings
 
 #### Chunk
 
-- Represents a processed document chunk  
-- Fields:  
-  - `chunk_id`: Unique internal identifier  
-  - `vector_id`: Qdrant point ID  
-  - `content`: Chunk text content  
-  - `metadata`: ChunkMetadata object  
+- Represents a processed document chunk
+- Fields:
+  - `chunk_id`: Unique internal identifier
+  - `vector_id`: Qdrant point ID
+  - `content`: Chunk text content
+  - `metadata`: ChunkMetadata object
   - `embedding_dimensions`: Vector dimension count
 
 #### ChunkMetadata
 
-- Complete metadata for a chunk  
-- Fields:  
-  - `document_id`: Parent document identifier  
-  - `source`: Original source file/URL  
-  - `chunk_index`: Position in document  
-  - `total_chunks`: Total chunks in document  
-  - `token_count`: Number of tokens  
-  - `char_count`: Character count  
-  - `chunking_method`: Method used (e.g., "semantic")  
-  - `extraction_date`: Timestamp  
+- Complete metadata for a chunk
+- Fields:
+  - `document_id`: Parent document identifier
+  - `source`: Original source file/URL
+  - `chunk_index`: Position in document
+  - `total_chunks`: Total chunks in document
+  - `token_count`: Number of tokens
+  - `char_count`: Character count
+  - `chunking_method`: Method used (e.g., "semantic")
+  - `extraction_date`: Timestamp
   - `custom_fields`: Dictionary of additional metadata
 
 ### 3.2 Response Models
 
 #### AddDocumentsResponse
 
-- Result from adding documents  
-- Fields:  
-  - `success`: Boolean status  
-  - `documents_processed`: Count of documents  
-  - `total_chunks`: Total chunks created  
-  - `chunks`: List of Chunk objects  
-  - `processing_stats`: ProcessingStats object  
+- Result from adding documents
+- Fields:
+  - `success`: Boolean status
+  - `documents_processed`: Count of documents
+  - `total_chunks`: Total chunks created
+  - `chunks`: List of Chunk objects
+  - `processing_stats`: ProcessingStats object
   - `errors`: List of error messages
 
 #### ProcessingStats
 
-- Performance metrics for document processing  
-- Fields:  
-  - `total_tokens`: Total tokens processed  
-  - `embedding_time_ms`: Time for embedding generation  
-  - `chunking_time_ms`: Time for chunking  
-  - `upload_time_ms`: Time for Qdrant upload  
+- Performance metrics for document processing
+- Fields:
+  - `total_tokens`: Total tokens processed
+  - `embedding_time_ms`: Time for embedding generation
+  - `chunking_time_ms`: Time for chunking
+  - `upload_time_ms`: Time for Qdrant upload
   - `failed_chunks`: Count of failed chunks
 
 #### UpdateDocumentsResponse
 
-- Result from update operations  
-- Fields:  
-  - `success`: Boolean status  
-  - `strategy_used`: Update strategy applied  
-  - `documents_affected`: Count of affected documents  
-  - `chunks_deleted`: Chunks removed  
-  - `chunks_added`: Chunks added  
-  - `chunks_updated`: Chunks modified  
-  - `updated_document_ids`: List of affected IDs  
+- Result from update operations
+- Fields:
+  - `success`: Boolean status
+  - `strategy_used`: Update strategy applied
+  - `documents_affected`: Count of affected documents
+  - `chunks_deleted`: Chunks removed
+  - `chunks_added`: Chunks added
+  - `chunks_updated`: Chunks modified
+  - `updated_document_ids`: List of affected IDs
   - `errors`: Error list
 
 #### RetrievalResponse
 
-- Result from retrieval operations  
-- Fields:  
-  - `success`: Boolean status  
-  - `query_original`: Original query string  
-  - `queries_generated`: Dict with standard and HyDE queries  
-  - `chunks`: List of RetrievedChunk objects  
-  - `retrieval_stats`: RetrievalStats object  
+- Result from retrieval operations
+- Fields:
+  - `success`: Boolean status
+  - `query_original`: Original query string
+  - `queries_generated`: Dict with standard and HyDE queries
+  - `chunks`: List of RetrievedChunk objects
+  - `retrieval_stats`: RetrievalStats object
   - `sources`: List of SourceInfo objects
 
 #### RetrievedChunk
 
-- A chunk returned from retrieval  
-- Fields:  
-  - `content`: Chunk text  
-  - `metadata`: ChunkMetadata  
-  - `relevance_score`: Reranker score (0-1)  
-  - `vector_score`: Cosine similarity score  
-  - `keyword_score`: BM25 score (optional)  
+- A chunk returned from retrieval
+- Fields:
+  - `content`: Chunk text
+  - `metadata`: ChunkMetadata
+  - `relevance_score`: Reranker score (0-1)
+  - `vector_score`: Cosine similarity score
+  - `keyword_score`: BM25 score (optional)
   - `rank`: Position in results
 
 #### RetrievalStats
 
-- Performance and count metrics for retrieval  
-- Fields:  
-  - `total_chunks_retrieved`: Initial retrieval count  
-  - `vector_search_chunks`: From vector search  
-  - `keyword_search_chunks`: From BM25 search  
-  - `chunks_after_dedup`: After deduplication  
-  - `chunks_after_reranking`: Final count  
+- Performance and count metrics for retrieval
+- Fields:
+  - `total_chunks_retrieved`: Initial retrieval count
+  - `vector_search_chunks`: From vector search
+  - `keyword_search_chunks`: From BM25 search
+  - `chunks_after_dedup`: After deduplication
+  - `chunks_after_reranking`: Final count
   - Timing fields for each stage
 
 #### SourceInfo
 
-- Aggregated information per source document  
-- Fields:  
-  - `source`: Source document name  
-  - `chunks_count`: Chunks from this source  
+- Aggregated information per source document
+- Fields:
+  - `source`: Source document name
+  - `chunks_count`: Chunks from this source
   - `avg_relevance`: Average relevance score
 
----
+______________________________________________________________________
 
-## 4\. Implementation Best Practices
+## 4. Implementation Best Practices
 
 ### 4.1 Semantic Chunking Strategy
 
@@ -748,55 +748,55 @@ Response: Top-k relevant chunks with scores
 
 #### Step 1: Single Chunk Optimization
 
-- Check if entire document ≤ max\_chunk\_size (1000 tokens)  
-- If yes, return as single chunk (no splitting)  
+- Check if entire document ≤ max_chunk_size (1000 tokens)
+- If yes, return as single chunk (no splitting)
 - Reduces unnecessary overhead for short documents
 
 #### Step 2: Semantic Boundary Detection
 
-- Generate embeddings for sentences or paragraphs  
-- Calculate similarity between adjacent segments  
-- Identify low-similarity points (topic transitions)  
-- Use percentile-based threshold (95th percentile default)  
+- Generate embeddings for sentences or paragraphs
+- Calculate similarity between adjacent segments
+- Identify low-similarity points (topic transitions)
+- Use percentile-based threshold (95th percentile default)
 - Split at these natural boundaries
 
 #### Step 3: Token Limit Enforcement
 
-- If any semantic chunk \> 1000 tokens  
-- Split oversized chunks using RecursiveCharacterTextSplitter  
-- Maintains strict token limits for embedding model  
+- If any semantic chunk > 1000 tokens
+- Split oversized chunks using RecursiveCharacterTextSplitter
+- Maintains strict token limits for embedding model
 - Preserves semantic boundaries where possible
 
 #### Step 4: Overlap Addition
 
-- Add 20% overlap between adjacent chunks  
-- Preserves context at boundaries  
-- Helps with retrieval accuracy  
+- Add 20% overlap between adjacent chunks
+- Preserves context at boundaries
+- Helps with retrieval accuracy
 - Ensures no information loss at splits
 
 #### Step 5: Fallback Strategy
 
-- If semantic chunking fails (embedding errors, etc.)  
-- Use RecursiveCharacterTextSplitter  
-- Chunk size: 1000 characters  
-- Overlap: 200 characters (20%)  
-- Separators: \["\\n\\n", "\\n", ". ", " ", ""\]
+- If semantic chunking fails (embedding errors, etc.)
+- Use RecursiveCharacterTextSplitter
+- Chunk size: 1000 characters
+- Overlap: 200 characters (20%)
+- Separators: ["\\n\\n", "\\n", ". ", " ", ""]
 
 **Benefits:**
 
-- Better context preservation  
-- Improved retrieval accuracy  
-- Natural information boundaries  
+- Better context preservation
+- Improved retrieval accuracy
+- Natural information boundaries
 - Flexible chunk sizes based on content
 
 **Metadata Tracking:**
 
-- Record chunking method used  
-- Store token and character counts  
-- Track chunk position in document  
+- Record chunking method used
+- Store token and character counts
+- Track chunk position in document
 - Enable analysis and optimization
 
----
+______________________________________________________________________
 
 ### 4.2 Hybrid Retrieval Pipeline
 
@@ -804,124 +804,124 @@ Response: Top-k relevant chunks with scores
 
 **Component Breakdown:**
 
-#### 1\. Query Generation with HyDE
+#### 1. Query Generation with HyDE
 
 **Standard Query:**
 
-- Direct optimization of user's query  
-- Remove stop words, normalize terms  
+- Direct optimization of user's query
+- Remove stop words, normalize terms
 - Expand abbreviations if needed
 
 **HyDE Query:**
 
-- LLM generates hypothetical answer to query  
-- Embed the answer instead of the question  
-- Research shows 30%+ improvement in retrieval  
+- LLM generates hypothetical answer to query
+- Embed the answer instead of the question
+- Research shows 30%+ improvement in retrieval
 - Works because answers are semantically similar to actual answers
 
 **Single LLM Call:**
 
-- Use structured output (JSON mode)  
-- Request both queries in one call  
-- Reduces latency and API costs  
+- Use structured output (JSON mode)
+- Request both queries in one call
+- Reduces latency and API costs
 - Ensures consistency
 
-#### 2\. Vector Search
+#### 2. Vector Search
 
 **Dual Query Search:**
 
-- Search with standard query → 25 chunks  
-- Search with HyDE query → 25 chunks  
+- Search with standard query → 25 chunks
+- Search with HyDE query → 25 chunks
 - Total: 50 chunks from vector search
 
 **Cosine Similarity:**
 
-- Distance metric for semantic similarity  
-- Range: \-1 to 1 (typically 0.5 to 1 for relevant)  
+- Distance metric for semantic similarity
+- Range: -1 to 1 (typically 0.5 to 1 for relevant)
 - Fast computation on Qdrant
 
 **Metadata Filtering:**
 
-- Apply before search (not post-filter)  
-- Ensures search efficiency  
+- Apply before search (not post-filter)
+- Ensures search efficiency
 - User isolation, template filtering
 
-#### 3\. Keyword Search (BM25)
+#### 3. Keyword Search (BM25)
 
 **BM25 Algorithm:**
 
-- Best practice for lexical search  
-- Term frequency / Inverse document frequency  
-- Handles exact term matches  
+- Best practice for lexical search
+- Term frequency / Inverse document frequency
+- Handles exact term matches
 - Complements semantic search
 
 **Retrieval Count:**
 
-- Get 50 chunks via BM25  
-- Same metadata filters applied  
-- Catches terms missed by embeddings  
+- Get 50 chunks via BM25
+- Same metadata filters applied
+- Catches terms missed by embeddings
 - Essential for names, codes, IDs
 
-#### 4\. Deduplication
+#### 4. Deduplication
 
 **Why Needed:**
 
-- Vector and keyword search overlap  
-- Same chunk may score well in both  
+- Vector and keyword search overlap
+- Same chunk may score well in both
 - Reduces reranking cost
 
 **Method:**
 
-- Hash-based deduplication on content  
-- Or document\_id \+ chunk\_index  
-- Keep highest score variant  
-- Result: \~100 unique chunks
+- Hash-based deduplication on content
+- Or document_id + chunk_index
+- Keep highest score variant
+- Result: ~100 unique chunks
 
-#### 5\. Reranking
+#### 5. Reranking
 
 **Cohere Rerank 3.5:**
 
-- Cross-encoder model  
-- Scores query-chunk relevance  
-- More accurate than embedding similarity  
+- Cross-encoder model
+- Scores query-chunk relevance
+- More accurate than embedding similarity
 - 0-1 relevance scores
 
 **Why It Works:**
 
-- Considers full query-chunk interaction  
-- Not limited by embedding dimensions  
-- Trained specifically for relevance ranking  
+- Considers full query-chunk interaction
+- Not limited by embedding dimensions
+- Trained specifically for relevance ranking
 - Research-proven improvement
 
 **Process:**
 
-- Send all \~100 chunks to Cohere  
-- API returns relevance scores  
-- Sort by score  
-- Select top\_k (default: 20\)
+- Send all ~100 chunks to Cohere
+- API returns relevance scores
+- Sort by score
+- Select top_k (default: 20)
 
-#### 6\. Final Selection
+#### 6. Final Selection
 
 **No Truncation:**
 
-- Return full chunks (not truncated)  
-- Preserves complete context  
+- Return full chunks (not truncated)
+- Preserves complete context
 - Critical for generation quality
 
 **Score Preservation:**
 
-- Include all scores (vector, keyword, reranker)  
-- Enables debugging and analysis  
+- Include all scores (vector, keyword, reranker)
+- Enables debugging and analysis
 - Supports confidence thresholds
 
 **Comprehensive Stats:**
 
-- Track timing for each stage  
-- Count chunks at each step  
-- Identify bottlenecks  
+- Track timing for each stage
+- Count chunks at each step
+- Identify bottlenecks
 - Optimize future queries
 
----
+______________________________________________________________________
 
 ### 4.3 Metadata Management
 
@@ -929,53 +929,53 @@ Response: Top-k relevant chunks with scores
 
 **Document-Level Metadata:**
 
-- `user_id`: User isolation and ownership  
-- `document_type`: Categorization (business\_document, knowledge\_base)  
-- `is_standalone`: Lifecycle management (profile vs standalone)  
-- `template_id`: Template association for filtering  
+- `user_id`: User isolation and ownership
+- `document_type`: Categorization (business_document, knowledge_base)
+- `is_standalone`: Lifecycle management (profile vs standalone)
+- `template_id`: Template association for filtering
 - `source_type`: Origin indicator (PDF, Website, Text)
 
 **Chunk-Level Metadata:**
 
-- `document_id`: Parent document reference  
-- `chunk_index`: Position in document  
-- `total_chunks`: Document size context  
-- `token_count`: Size tracking  
-- `char_count`: Alternative size metric  
-- `chunking_method`: Processing history  
+- `document_id`: Parent document reference
+- `chunk_index`: Position in document
+- `total_chunks`: Document size context
+- `token_count`: Size tracking
+- `char_count`: Alternative size metric
+- `chunking_method`: Processing history
 - `extraction_date`: Timestamp for freshness
 
 **Custom Metadata:**
 
-- Extensible dictionary for application-specific fields  
-- Examples: `document_name`, `website_url`, `status`, `tags`  
-- Enables flexible filtering and organization  
+- Extensible dictionary for application-specific fields
+- Examples: `document_name`, `website_url`, `status`, `tags`
+- Enables flexible filtering and organization
 - No schema restrictions
 
 **Metadata Usage:**
 
 **Filtering:**
 
-- User isolation: `{"user_id": "user_123"}`  
-- Template-specific: `{"template_id": "template_456"}`  
-- Document type: `{"document_type": "business_document"}`  
+- User isolation: `{"user_id": "user_123"}`
+- Template-specific: `{"template_id": "template_456"}`
+- Document type: `{"document_type": "business_document"}`
 - Combined filters: `{"user_id": "user_123", "is_standalone": true}`
 
 **Analytics:**
 
-- Track chunking performance by method  
-- Monitor token usage per user  
-- Analyze source distribution  
+- Track chunking performance by method
+- Monitor token usage per user
+- Analyze source distribution
 - Identify optimal chunk sizes
 
 **Lifecycle Management:**
 
-- Cascade deletes based on `is_standalone`  
-- Archive documents by status  
-- Update timestamps for freshness  
+- Cascade deletes based on `is_standalone`
+- Archive documents by status
+- Update timestamps for freshness
 - Version control via custom fields
 
----
+______________________________________________________________________
 
 ### 4.4 Error Handling Strategy
 
@@ -983,44 +983,44 @@ Response: Top-k relevant chunks with scores
 
 **Error Categories:**
 
-**1\. Input Validation Errors (Fail Fast)**
+**1. Input Validation Errors (Fail Fast)**
 
-- Invalid API keys → Raise at initialization  
-- Missing required parameters → Raise before processing  
-- Invalid file formats → Raise with specific error type  
+- Invalid API keys → Raise at initialization
+- Missing required parameters → Raise before processing
+- Invalid file formats → Raise with specific error type
 - Prevents wasted processing
 
-**2\. Processing Errors (Retry with Fallback)**
+**2. Processing Errors (Retry with Fallback)**
 
-- PDF extraction failure → Try alternative parser  
-- Semantic chunking failure → Fallback to character-based  
-- Embedding API rate limit → Exponential backoff retry  
+- PDF extraction failure → Try alternative parser
+- Semantic chunking failure → Fallback to character-based
+- Embedding API rate limit → Exponential backoff retry
 - Partial success where possible
 
-**3\. Storage Errors (Transactional)**
+**3. Storage Errors (Transactional)**
 
-- Qdrant connection failure → Roll back operation  
-- Partial upload failure → Mark failed chunks  
-- Network timeout → Retry with backoff  
+- Qdrant connection failure → Roll back operation
+- Partial upload failure → Mark failed chunks
+- Network timeout → Retry with backoff
 - Ensure consistency
 
-**4\. Retrieval Errors (Graceful Degradation)**
+**4. Retrieval Errors (Graceful Degradation)**
 
-- Reranking failure → Return vector-sorted results  
-- Keyword search failure → Vector-only results  
-- HyDE generation failure → Standard query only  
+- Reranking failure → Return vector-sorted results
+- Keyword search failure → Vector-only results
+- HyDE generation failure → Standard query only
 - Never return empty results if any method succeeds
 
 **Error Response Structure:**
 
-- Clear error type classification  
-- Descriptive message for debugging  
-- Context (document ID, chunk index, etc.)  
+- Clear error type classification
+- Descriptive message for debugging
+- Context (document ID, chunk index, etc.)
 - Actionable guidance for resolution
 
----
+______________________________________________________________________
 
-## 5\. Extension Points
+## 5. Extension Points
 
 ### 5.1 Adding New Chunking Methods
 
@@ -1028,23 +1028,23 @@ Response: Top-k relevant chunks with scores
 
 **Required Methods:**
 
-- `chunk(text: str) -> List[Chunk]`  
+- `chunk(text: str) -> List[Chunk]`
 - `validate_config(config: Dict) -> bool`
 
 **Future Additions:**
 
-- Recursive character chunking  
-- Fixed-size chunking  
-- Markdown-aware chunking  
+- Recursive character chunking
+- Fixed-size chunking
+- Markdown-aware chunking
 - Code-specific chunking
 
 **Configuration:**
 
-- Add new `chunking_method` option  
-- Method-specific parameters in config  
+- Add new `chunking_method` option
+- Method-specific parameters in config
 - Backward compatible defaults
 
----
+______________________________________________________________________
 
 ### 5.2 Adding New Embedding Providers
 
@@ -1052,23 +1052,23 @@ Response: Top-k relevant chunks with scores
 
 **Required Methods:**
 
-- `embed(texts: List[str]) -> List[Vector]`  
+- `embed(texts: List[str]) -> List[Vector]`
 - `get_dimensions() -> int`
 
 **Future Additions:**
 
-- Cohere embeddings  
-- Azure OpenAI embeddings  
-- Anthropic embeddings  
+- Cohere embeddings
+- Azure OpenAI embeddings
+- Anthropic embeddings
 - Local embedding models
 
 **Configuration:**
 
-- Add `embedding_provider` option  
-- Provider-specific credentials  
+- Add `embedding_provider` option
+- Provider-specific credentials
 - Model selection per provider
 
----
+______________________________________________________________________
 
 ### 5.3 Adding New Vector Databases
 
@@ -1076,25 +1076,25 @@ Response: Top-k relevant chunks with scores
 
 **Required Methods:**
 
-- `create_collection(name: str, dimensions: int)`  
-- `upsert(collection: str, points: List[Point])`  
-- `search(collection: str, query_vector: Vector, filters: Dict) -> List[Result]`  
+- `create_collection(name: str, dimensions: int)`
+- `upsert(collection: str, points: List[Point])`
+- `search(collection: str, query_vector: Vector, filters: Dict) -> List[Result]`
 - `delete(collection: str, filters: Dict)`
 
 **Future Additions:**
 
-- Pinecone  
-- Weaviate  
-- Milvus  
+- Pinecone
+- Weaviate
+- Milvus
 - ChromaDB
 
 **Configuration:**
 
-- Add `vector_db_provider` option  
-- Provider-specific connection details  
+- Add `vector_db_provider` option
+- Provider-specific connection details
 - Migrate existing data between providers
 
----
+______________________________________________________________________
 
 ### 5.4 Adding New Rerankers
 
@@ -1106,40 +1106,40 @@ Response: Top-k relevant chunks with scores
 
 **Future Additions:**
 
-- Cross-encoder models (local)  
-- Anthropic Claude reranking  
+- Cross-encoder models (local)
+- Anthropic Claude reranking
 - Custom fine-tuned models
 
 **Configuration:**
 
-- Add `reranker_provider` option  
-- Model selection  
+- Add `reranker_provider` option
+- Model selection
 - Custom model loading paths
 
----
+______________________________________________________________________
 
-## 6\. Performance Considerations
+## 6. Performance Considerations
 
 **Query Generation:**
 
-- Single LLM call for standard \+ HyDE queries  
-- Structured output for parsing efficiency  
+- Single LLM call for standard + HyDE queries
+- Structured output for parsing efficiency
 - Cache common query patterns
 
 **Vector Search:**
 
-- Parallel searches for multiple queries  
-- Efficient metadata filtering in Qdrant  
+- Parallel searches for multiple queries
+- Efficient metadata filtering in Qdrant
 - Index optimization (HNSW algorithm)
 
 **Keyword Search:**
 
-- Pre-computed BM25 indexes  
-- Incremental index updates  
+- Pre-computed BM25 indexes
+- Incremental index updates
 - Cache for frequent queries
 
 **Reranking:**
 
-- Batch API calls where possible  
-- Limit candidate set size (\~100 chunks)  
+- Batch API calls where possible
+- Limit candidate set size (~100 chunks)
 - Parallel processing for multiple queries
