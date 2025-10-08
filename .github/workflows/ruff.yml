@@ -1,0 +1,81 @@
+# This GitHub Action workflow lints and formats Python code using Ruff.
+# It runs on every pull request.
+#
+# The workflow has the following steps:
+# 1. Checks out the code.
+# 2. Installs uv, the fast Python package installer.
+# 3. Sets up a Python environment using uv.
+# 4. Installs ruff using uv.
+# 5. Runs 'ruff check --fix' to find and automatically fix linting errors,
+#    capturing the command's output.
+# 6. Runs 'ruff check' again. If any errors remain that cannot be fixed,
+#    the workflow will fail at this step.
+# 7. If linting was successful, it commits any auto-fixed files. The commit
+#    message will include the output from the initial ruff run.
+# 8. Runs 'ruff format' to ensure consistent code formatting.
+# 9. Commits any files that were changed by the formatter.
+
+name: Lint, Format and Commit
+
+on:
+  pull_request:
+
+jobs:
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to write changes to the repository
+      contents: write
+      # Optional: Required to write a review comment on the PR
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python and install ruff
+        run: |
+          uv python install
+          uv tool install ruff
+
+      - name: Run ruff to check, autofix, and capture output
+        id: ruff-check
+        run: |
+          # Run ruff and capture its output. We use `|| true` because ruff exits with a
+          # non-zero status code if it finds issues, even if they're all fixed.
+          # We'll run a second check later to fail the build on any remaining unfixable errors.
+          RUFF_OUTPUT=$(ruff check . --fix --show-fixes 2>&1 || true)
+
+          # Expose the output to subsequent steps
+          echo "ruff_output<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RUFF_OUTPUT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Check for remaining linting issues
+        # This step ensures the workflow fails if the previous step couldn't fix all errors.
+        run: ruff check .
+
+      - name: Commit linting fixes
+        # This step only runs if the previous 'ruff check' step succeeds.
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: |
+            fix: fix linting issues with ruff
+
+            ${{ steps.ruff-check.outputs.ruff_output }}
+          file_pattern: "*.py"
+
+      - name: Run ruff to format the code
+        # We replace the ruff-action with a direct run command for consistency.
+        run: ruff format .
+
+      - name: Commit formatting changes
+        # This step only runs if the previous 'ruff format' step succeeds.
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "style: format code with ruff"
+          file_pattern: "*.py"
