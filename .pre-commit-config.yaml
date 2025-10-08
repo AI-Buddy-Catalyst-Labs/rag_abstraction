@@ -1,0 +1,40 @@
+default_stages:
+  - pre-commit
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.9.0
+    hooks:
+      - id: uv-lock
+      - id: uv-export
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: check-illegal-windows-names
+      - args:
+          - --fix=lf
+        id: mixed-line-ending
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - args:
+          - --fix
+          - --unsafe-fixes
+          - --exit-non-zero-on-fix
+        id: ruff-check
+      - id: ruff-format
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - additional_dependencies:
+          - mdformat-ruff
+        id: mdformat
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.9.1
+    hooks:
+      - id: commitizen
+        stages:
+          - commit-msg
+      - id: commitizen-branch
+        stages:
+          - pre-push
