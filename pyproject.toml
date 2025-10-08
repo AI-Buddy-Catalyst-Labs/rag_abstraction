@@ -1,4 +1,3 @@
-
 [project]
 name = "aibuddy_rag"
 version = "0.0.1"
@@ -6,8 +5,10 @@ description = "A RAG (Retrieval-Augmented Generation) library for document proce
 authors = [
     { name = "Aukik Aurnab", email = "aukikaurnabx@gmail.com" },
     { name = "Tahmidul Islam", email = "me@tahmidul612.com" },
-    { name = "MD Ikramul Kayes", email = "ikramul.kayesgg@gmail.com" }
+    { name = "MD Ikramul Kayes", email = "ikramul.kayesgg@gmail.com" },
 ]
+requires-python = ">=3.9"
+readme = "README.md"
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
@@ -20,16 +21,10 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-readme = "README.md"
-requires-python = ">=3.9"
+dependencies = []
+
 [project.urls]
-"Homepage" = "https://github.com/AI-Buddy-Catalyst-Labs/rag_abstraction"
-
-[build-system]
-requires = ["setuptools >= 77.0.3"]
-build-backend = "setuptools.build_meta"
-
-### Ruff Configuration
+Homepage = "https://github.com/AI-Buddy-Catalyst-Labs/rag_abstraction"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
