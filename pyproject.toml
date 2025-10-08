@@ -1,5 +1,5 @@
 [project]
-name = "rag_abstraction"
+name = "insta_rag"
 version = "0.0.1"
 description = "A RAG (Retrieval-Augmented Generation) library for document processing and retrieval."
 authors = [
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/AI-Buddy-Catalyst-Labs/rag_abstraction"
+Homepage = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag"
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
