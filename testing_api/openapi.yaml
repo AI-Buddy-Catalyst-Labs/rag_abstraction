@@ -1,0 +1,563 @@
+openapi: 3.0.3
+info:
+  title: insta_rag Testing API
+  description: |
+    API for testing all insta_rag library modules and components.
+
+    This API provides comprehensive endpoints to test:
+    - Configuration loading and validation
+    - Chunking functionality (semantic chunking, utilities)
+    - Embedding generation (OpenAI/Azure OpenAI)
+    - Vector database operations (Qdrant)
+    - PDF processing
+    - Complete document processing pipeline
+    - Integration testing
+  version: 0.0.1
+  contact:
+    name: insta_rag Team
+    url: https://github.com/AI-Buddy-Catalyst-Labs/insta_rag
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: http://127.0.0.1:8000
+    description: Alternative local server
+
+tags:
+  - name: Health
+    description: Health check and system status
+  - name: Configuration
+    description: Configuration testing
+  - name: Chunking
+    description: Text chunking functionality
+  - name: Embedding
+    description: Embedding generation
+  - name: Vector Database
+    description: Vector database operations
+  - name: PDF Processing
+    description: PDF text extraction
+  - name: Documents
+    description: Complete document processing
+  - name: Integration
+    description: Integration testing
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Check API health and component status
+      operationId: health_check
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                message: insta_rag Testing API is running
+                components:
+                  rag_client: initialized
+                  config: loaded
+                  embeddings: configured
+                  vector_db: configured
+
+  /api/v1/test/config:
+    get:
+      tags:
+        - Configuration
+      summary: Test Configuration
+      description: Test configuration loading and validation
+      operationId: test_config
+      responses:
+        '200':
+          description: Configuration test results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  /api/v1/test/chunking:
+    post:
+      tags:
+        - Chunking
+      summary: Test Semantic Chunking
+      description: Test semantic chunking functionality with custom parameters
+      operationId: test_chunking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextChunkRequest'
+            example:
+              text: "This is a test document. It has multiple sentences. We will test semantic chunking."
+              max_chunk_size: 1000
+              overlap_percentage: 0.2
+      responses:
+        '200':
+          description: Chunking results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChunkResponse'
+
+  /api/v1/test/chunking/utils:
+    get:
+      tags:
+        - Chunking
+      summary: Test Chunking Utilities
+      description: Test chunking utility functions like token counting and quality validation
+      operationId: test_chunking_utils
+      responses:
+        '200':
+          description: Utility test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  test_text:
+                    type: string
+                  token_count:
+                    type: integer
+                  is_valid_quality:
+                    type: boolean
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v1/test/embedding:
+    post:
+      tags:
+        - Embedding
+      summary: Test Embedding Generation
+      description: Generate embeddings for a list of texts
+      operationId: test_embedding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRequest'
+            example:
+              texts:
+                - "Test sentence one"
+                - "Test sentence two"
+      responses:
+        '200':
+          description: Embedding results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+
+  /api/v1/test/vectordb/collections:
+    get:
+      tags:
+        - Vector Database
+      summary: List Collections
+      description: List all available Qdrant collections
+      operationId: test_vectordb_collections
+      responses:
+        '200':
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  collections:
+                    type: array
+                    items:
+                      type: string
+                  count:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v1/test/vectordb/collection/{collection_name}:
+    get:
+      tags:
+        - Vector Database
+      summary: Get Collection Info
+      description: Get information about a specific collection
+      operationId: test_vectordb_collection_info
+      parameters:
+        - name: collection_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the collection
+          example: test_collection
+      responses:
+        '200':
+          description: Collection information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionInfoResponse'
+        '404':
+          description: Collection not found
+
+  /api/v1/test/pdf/upload:
+    post:
+      tags:
+        - PDF Processing
+      summary: Test PDF Upload
+      description: Upload and extract text from a PDF file
+      operationId: test_pdf_upload
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF file to process
+      responses:
+        '200':
+          description: PDF extraction results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  filename:
+                    type: string
+                  text_length:
+                    type: integer
+                  token_count:
+                    type: integer
+                  text_preview:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v1/test/documents/add:
+    post:
+      tags:
+        - Documents
+      summary: Add Document (Text)
+      description: Test complete document processing pipeline with text input
+      operationId: test_add_document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDocumentRequest'
+            example:
+              text: "This is a test document for processing."
+              collection_name: test_collection
+              metadata:
+                source: api_test
+                test: true
+      responses:
+        '200':
+          description: Document processing results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddDocumentResponse'
+
+  /api/v1/test/documents/add-file:
+    post:
+      tags:
+        - Documents
+      summary: Add Document (File)
+      description: Test complete document processing pipeline with file upload
+      operationId: test_add_document_file
+      parameters:
+        - name: collection_name
+          in: query
+          required: false
+          schema:
+            type: string
+            default: test_collection
+          description: Target collection name
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file (PDF, TXT, MD)
+      responses:
+        '200':
+          description: Document processing results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  filename:
+                    type: string
+                  documents_processed:
+                    type: integer
+                  total_chunks:
+                    type: integer
+                  processing_time_ms:
+                    type: number
+                  chunking_time_ms:
+                    type: number
+                  embedding_time_ms:
+                    type: number
+                  upload_time_ms:
+                    type: number
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v1/test/integration:
+    get:
+      tags:
+        - Integration
+      summary: Integration Test
+      description: Run comprehensive integration test of all components
+      operationId: test_integration
+      responses:
+        '200':
+          description: Integration test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overall_status:
+                    type: string
+                    enum: [passed, failed]
+                  tests:
+                    type: object
+                    properties:
+                      config:
+                        $ref: '#/components/schemas/TestResult'
+                      chunking:
+                        $ref: '#/components/schemas/TestResult'
+                      embedding:
+                        $ref: '#/components/schemas/TestResult'
+                      vectordb:
+                        $ref: '#/components/schemas/TestResult'
+                      document_processing:
+                        $ref: '#/components/schemas/TestResult'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - message
+        - components
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        message:
+          type: string
+        components:
+          type: object
+          additionalProperties:
+            type: string
+
+    ConfigResponse:
+      type: object
+      required:
+        - valid
+        - config
+      properties:
+        valid:
+          type: boolean
+        config:
+          type: object
+          additionalProperties: true
+        errors:
+          type: array
+          items:
+            type: string
+
+    TextChunkRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Text to chunk
+          minLength: 1
+        max_chunk_size:
+          type: integer
+          description: Maximum tokens per chunk
+          default: 1000
+          minimum: 100
+        overlap_percentage:
+          type: number
+          description: Overlap percentage between chunks
+          default: 0.2
+          minimum: 0
+          maximum: 1
+
+    ChunkResponse:
+      type: object
+      required:
+        - success
+        - chunks_count
+        - chunks
+      properties:
+        success:
+          type: boolean
+        chunks_count:
+          type: integer
+        chunks:
+          type: array
+          items:
+            type: object
+            properties:
+              chunk_id:
+                type: string
+              content:
+                type: string
+              token_count:
+                type: integer
+              char_count:
+                type: integer
+              chunking_method:
+                type: string
+        errors:
+          type: array
+          items:
+            type: string
+
+    EmbeddingRequest:
+      type: object
+      required:
+        - texts
+      properties:
+        texts:
+          type: array
+          items:
+            type: string
+          description: List of texts to embed
+          minItems: 1
+
+    EmbeddingResponse:
+      type: object
+      required:
+        - success
+        - embeddings_count
+        - dimensions
+      properties:
+        success:
+          type: boolean
+        embeddings_count:
+          type: integer
+        dimensions:
+          type: integer
+        sample_embedding:
+          type: array
+          items:
+            type: number
+          description: First 10 dimensions of first embedding
+        errors:
+          type: array
+          items:
+            type: string
+
+    CollectionInfoResponse:
+      type: object
+      required:
+        - name
+        - vectors_count
+        - status
+      properties:
+        name:
+          type: string
+        vectors_count:
+          type: integer
+        status:
+          type: string
+
+    AddDocumentRequest:
+      type: object
+      required:
+        - collection_name
+      properties:
+        text:
+          type: string
+          description: Text content (optional, defaults to test text)
+        collection_name:
+          type: string
+          description: Collection name
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Document metadata
+
+    AddDocumentResponse:
+      type: object
+      required:
+        - success
+        - documents_processed
+        - total_chunks
+        - processing_time_ms
+      properties:
+        success:
+          type: boolean
+        documents_processed:
+          type: integer
+        total_chunks:
+          type: integer
+        processing_time_ms:
+          type: number
+        errors:
+          type: array
+          items:
+            type: string
+
+    TestResult:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [passed, failed, unknown]
+        details:
+          type: string
+        error:
+          type: string
+        chunks_created:
+          type: integer
+        dimensions:
+          type: integer
+        collections_count:
+          type: integer
+        chunks:
+          type: integer
+        processing_time_ms:
+          type: number
