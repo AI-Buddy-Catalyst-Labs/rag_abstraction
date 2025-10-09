@@ -148,7 +148,7 @@ class RetrieveRequest(BaseModel):
         True, description="Use HyDE query generation (Phase 2 - enabled by default)"
     )
     score_threshold: Optional[float] = Field(
-        None, description="Minimum relevance score filter", ge=0.0, le=1.0
+        0.1, description="Minimum relevance score filter", ge=0.0, le=1.0
     )
     return_full_chunks: bool = Field(
         True, description="Return complete vs truncated content"
