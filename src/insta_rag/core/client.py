@@ -552,13 +552,27 @@ class RAGClient:
 
             stats.query_generation_time_ms = (time.time() - query_gen_start) * 1000
 
+            # Print generated queries for visibility
+            print(f"\n📝 Query Generation ({stats.query_generation_time_ms:.2f}ms):")
+            print(f"   Original Query: {query}")
+            if enable_hyde:
+                print(f"   Standard Query: {standard_query}")
+                if hyde_query and hyde_query != standard_query:
+                    print(f"   HyDE Query: {hyde_query[:200]}{'...' if len(hyde_query) > 200 else ''}")
+                else:
+                    print(f"   HyDE Query: (same as original - generation may have failed)")
+            else:
+                print(f"   HyDE: Disabled")
+
             # ===================================================================
             # STEP 2: DUAL VECTOR SEARCH (Phase 2: Standard + HyDE)
             # ===================================================================
+            print(f"\n🔍 Vector Search:")
             vector_search_start = time.time()
             all_vector_results = []
 
             # Search 1: Standard query (25 chunks)
+            print(f"   Search 1: Standard query → ", end="")
             embedding_1 = self.embedder.embed_query(standard_query)
             results_1 = self.vectordb.search(
                 collection_name=collection_name,
@@ -567,9 +581,11 @@ class RAGClient:
                 filters=filters,
             )
             all_vector_results.extend(results_1)
+            print(f"{len(results_1)} chunks")
 
             # Search 2: HyDE query (25 chunks) if enabled
             if enable_hyde and hyde_query and hyde_query != standard_query:
+                print(f"   Search 2: HyDE query → ", end="")
                 embedding_2 = self.embedder.embed_query(hyde_query)
                 results_2 = self.vectordb.search(
                     collection_name=collection_name,
@@ -578,15 +594,19 @@ class RAGClient:
                     filters=filters,
                 )
                 all_vector_results.extend(results_2)
+                print(f"{len(results_2)} chunks")
 
             stats.vector_search_time_ms = (time.time() - vector_search_start) * 1000
             stats.vector_search_chunks = len(all_vector_results)
+            print(f"   ✓ Total vector results: {len(all_vector_results)} chunks ({stats.vector_search_time_ms:.2f}ms)")
 
             # ===================================================================
             # STEP 3: KEYWORD SEARCH (Phase 2: BM25)
             # ===================================================================
             keyword_results = []
             if enable_keyword_search:
+                print(f"\n🔎 Keyword Search (BM25):")
+                print(f"   Using query: {query}")
                 keyword_search_start = time.time()
 
                 try:
@@ -617,20 +637,24 @@ class RAGClient:
                         time.time() - keyword_search_start
                     ) * 1000
                     stats.keyword_search_chunks = len(keyword_results)
+                    print(f"   ✓ BM25 results: {len(keyword_results)} chunks ({stats.keyword_search_time_ms:.2f}ms)")
 
                 except Exception as e:
-                    print(f"   Warning: BM25 search failed: {e}")
+                    print(f"   ⚠️ Warning: BM25 search failed: {e}")
                     stats.keyword_search_time_ms = 0.0
                     stats.keyword_search_chunks = 0
             else:
+                print(f"\n🔎 Keyword Search: Disabled")
                 stats.keyword_search_chunks = 0
                 stats.keyword_search_time_ms = 0.0
 
             # ===================================================================
             # STEP 4: COMBINE & DEDUPLICATE (Vector + Keyword results)
             # ===================================================================
+            print(f"\n🔀 Combining & Deduplicating:")
             all_chunks = all_vector_results + keyword_results
             stats.total_chunks_retrieved = len(all_chunks)
+            print(f"   Combined: {len(all_chunks)} total chunks")
 
             if deduplicate:
                 # Deduplicate by chunk_id, keep highest score
@@ -640,8 +664,10 @@ class RAGClient:
                     if chunk_id not in chunk_dict or chunk.score > chunk_dict[chunk_id].score:
                         chunk_dict[chunk_id] = chunk
                 unique_chunks = list(chunk_dict.values())
+                print(f"   After deduplication: {len(unique_chunks)} unique chunks")
             else:
                 unique_chunks = all_chunks
+                print(f"   Deduplication: Disabled")
 
             stats.chunks_after_dedup = len(unique_chunks)
 
@@ -731,6 +757,25 @@ class RAGClient:
 
             # Calculate total time
             stats.total_time_ms = (time.time() - start_time) * 1000
+
+            # Print retrieval summary
+            print(f"\n{'='*60}")
+            print(f"✅ RETRIEVAL COMPLETE")
+            print(f"{'='*60}")
+            print(f"📊 Summary:")
+            print(f"   Query: '{query}'")
+            if enable_hyde and queries_generated.get("standard"):
+                print(f"   Searches performed:")
+                print(f"     1. Standard query: '{queries_generated['standard']}'")
+                if queries_generated.get("hyde") and queries_generated["hyde"] != queries_generated["standard"]:
+                    print(f"     2. HyDE query: '{queries_generated['hyde'][:80]}...'")
+                if enable_keyword_search and stats.keyword_search_chunks > 0:
+                    print(f"     3. BM25 keyword search")
+            print(f"   Total chunks retrieved: {stats.total_chunks_retrieved}")
+            print(f"   After deduplication: {stats.chunks_after_dedup}")
+            print(f"   Final results returned: {len(retrieved_chunks)}")
+            print(f"   Total time: {stats.total_time_ms:.2f}ms")
+            print(f"{'='*60}\n")
 
             return RetrievalResponse(
                 success=True,
