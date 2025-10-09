@@ -1,0 +1,236 @@
+{
+  "info": {
+    "name": "insta_rag Testing API",
+    "description": "Complete collection for testing insta_rag library",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Configuration",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          }
+        },
+        {
+          "name": "Test Configuration",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "config"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chunking Tests",
+      "item": [
+        {
+          "name": "Test Semantic Chunking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"This is a test document. It has multiple sentences. We will test semantic chunking. The system should split this intelligently.\",\n  \"max_chunk_size\": 1000,\n  \"overlap_percentage\": 0.2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/chunking",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "chunking"]
+            }
+          }
+        },
+        {
+          "name": "Test Chunking Utils",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/chunking/utils",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "chunking", "utils"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Embedding Tests",
+      "item": [
+        {
+          "name": "Test Embedding Generation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"texts\": [\n    \"Test sentence one\",\n    \"Test sentence two\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/embedding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "embedding"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vector Database Tests",
+      "item": [
+        {
+          "name": "List Collections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/vectordb/collections",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "vectordb", "collections"]
+            }
+          }
+        },
+        {
+          "name": "Get Collection Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/vectordb/collection/test_collection",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "vectordb", "collection", "test_collection"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PDF Processing Tests",
+      "item": [
+        {
+          "name": "Upload and Process PDF",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/your/document.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/pdf/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "pdf", "upload"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Document Processing Tests",
+      "item": [
+        {
+          "name": "Add Document (Text)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"This is a test document for the complete processing pipeline. It will be chunked, embedded, and stored.\",\n  \"collection_name\": \"test_collection\",\n  \"metadata\": {\n    \"source\": \"postman_test\",\n    \"test\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/documents/add",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "documents", "add"]
+            }
+          }
+        },
+        {
+          "name": "Add Document (File)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/your/document.pdf"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/documents/add-file?collection_name=test_collection",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "documents", "add-file"],
+              "query": [
+                {
+                  "key": "collection_name",
+                  "value": "test_collection"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integration Tests",
+      "item": [
+        {
+          "name": "Run Full Integration Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/test/integration",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "test", "integration"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
