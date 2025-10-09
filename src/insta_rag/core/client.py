@@ -354,3 +354,400 @@ class RAGClient:
         """
         collections = self.vectordb.client.get_collections().collections
         return [c.name for c in collections]
+
+    def search(
+        self,
+        query: str,
+        collection_name: str,
+        top_k: int = 20,
+        filters: Optional[Dict[str, Any]] = None,
+    ):
+        """Search for relevant chunks using query.
+
+        This method performs vector similarity search to find the most relevant
+        chunks for the given query.
+
+        Args:
+            query: Search query text
+            collection_name: Collection to search in
+            top_k: Number of results to return
+            filters: Optional metadata filters
+
+        Returns:
+            RetrievalResponse with search results
+        """
+        from ..models.response import RetrievalResponse, RetrievedChunk, RetrievalStats
+
+        start_time = time.time()
+        stats = RetrievalStats()
+
+        try:
+            # Generate query embedding
+            embedding_start = time.time()
+            query_embedding = self.embedder.embed_query(query)
+            stats.query_generation_time_ms = (time.time() - embedding_start) * 1000
+
+            # Perform vector search
+            search_start = time.time()
+            search_results = self.vectordb.search(
+                collection_name=collection_name,
+                query_vector=query_embedding,
+                limit=top_k,
+                filters=filters,
+            )
+            stats.vector_search_time_ms = (time.time() - search_start) * 1000
+            stats.vector_search_chunks = len(search_results)
+
+            # If MongoDB is enabled, fetch content
+            if self.mongodb:
+                for result in search_results:
+                    if result.metadata.get("content_storage") == "mongodb":
+                        mongodb_id = result.metadata.get("mongodb_id")
+                        if mongodb_id:
+                            # Fetch content from MongoDB
+                            mongo_doc = self.mongodb.get_chunk_content_by_mongo_id(str(mongodb_id))
+                            if mongo_doc:
+                                result.content = mongo_doc.get("content", "")
+
+            # Convert to RetrievedChunk objects
+            retrieved_chunks = []
+            for rank, result in enumerate(search_results):
+                chunk = RetrievedChunk(
+                    content=result.content,
+                    metadata=result.metadata,
+                    relevance_score=result.score,
+                    vector_score=result.score,
+                    rank=rank,
+                )
+                retrieved_chunks.append(chunk)
+
+            stats.chunks_after_reranking = len(retrieved_chunks)
+            stats.total_chunks_retrieved = len(retrieved_chunks)
+            stats.total_time_ms = (time.time() - start_time) * 1000
+
+            # Calculate source statistics
+            from ..models.response import SourceInfo
+            from collections import defaultdict
+
+            source_stats = defaultdict(lambda: {"count": 0, "total_score": 0.0})
+            for chunk in retrieved_chunks:
+                source = chunk.metadata.get("source", "unknown")
+                source_stats[source]["count"] += 1
+                source_stats[source]["total_score"] += chunk.relevance_score
+
+            sources = [
+                SourceInfo(
+                    source=source,
+                    chunks_count=data["count"],
+                    avg_relevance=data["total_score"] / data["count"],
+                )
+                for source, data in source_stats.items()
+            ]
+
+            return RetrievalResponse(
+                success=True,
+                query_original=query,
+                queries_generated={"original": query},
+                chunks=retrieved_chunks,
+                retrieval_stats=stats,
+                sources=sources,
+                errors=[],
+            )
+
+        except Exception as e:
+            stats.total_time_ms = (time.time() - start_time) * 1000
+            return RetrievalResponse(
+                success=False,
+                query_original=query,
+                retrieval_stats=stats,
+                errors=[f"Search error: {str(e)}"],
+            )
+
+    def retrieve(
+        self,
+        query: str,
+        collection_name: str,
+        filters: Optional[Dict[str, Any]] = None,
+        top_k: int = 20,
+        enable_reranking: bool = False,  # Phase 3 - Cohere reranking
+        enable_keyword_search: bool = True,  # Phase 2 - ENABLED BY DEFAULT
+        enable_hyde: bool = True,  # Phase 2 - ENABLED BY DEFAULT
+        score_threshold: Optional[float] = None,
+        return_full_chunks: bool = True,
+        deduplicate: bool = True,
+    ):
+        """
+        Advanced hybrid retrieval method (Phase 2 - with HyDE + BM25).
+
+        Phase 2 implements:
+        - HyDE query generation using Azure OpenAI
+        - Dual vector search (standard + HyDE queries)
+        - BM25 keyword search for exact term matching
+        - Smart deduplication
+        - MongoDB content fetching (if enabled)
+
+        Future phases:
+        - Phase 3: Cohere reranking
+
+        Args:
+            query: User's search question
+            collection_name: Target Qdrant collection
+            filters: Metadata filters (e.g., {"user_id": "123", "template_id": "456"})
+            top_k: Final number of chunks to return (default: 20)
+            enable_reranking: Use Cohere reranking (Phase 3 - not yet implemented)
+            enable_keyword_search: Include BM25 keyword search (default: True)
+            enable_hyde: Use HyDE query generation (default: True)
+            score_threshold: Minimum relevance score filter (optional)
+            return_full_chunks: Return complete vs truncated content (default: True)
+            deduplicate: Remove duplicate chunks (default: True)
+
+        Returns:
+            RetrievalResponse with search results and performance statistics
+
+        Example:
+            >>> response = client.retrieve(
+            ...     query="What is semantic chunking?",
+            ...     collection_name="knowledge_base",
+            ...     top_k=10
+            ... )
+            >>> for chunk in response.chunks:
+            ...     print(f"Score: {chunk.relevance_score:.4f}")
+            ...     print(f"Content: {chunk.content[:100]}...")
+        """
+        from ..models.response import RetrievalResponse, RetrievedChunk, RetrievalStats, SourceInfo
+        from collections import defaultdict
+
+        start_time = time.time()
+        stats = RetrievalStats()
+        queries_generated = {"original": query}
+
+        try:
+            # ===================================================================
+            # STEP 1: QUERY GENERATION (Phase 2: HyDE)
+            # ===================================================================
+            query_gen_start = time.time()
+
+            if enable_hyde:
+                # Use HyDE query generator
+                from ..retrieval.query_generator import HyDEQueryGenerator
+
+                try:
+                    hyde_generator = HyDEQueryGenerator(self.config.llm)
+                    generated = hyde_generator.generate_queries(query)
+                    standard_query = generated["standard"]
+                    hyde_query = generated["hyde"]
+                    queries_generated["standard"] = standard_query
+                    queries_generated["hyde"] = hyde_query
+                except Exception as e:
+                    print(f"   Warning: HyDE generation failed: {e}")
+                    # Fallback to original query
+                    standard_query = query
+                    hyde_query = query
+                    queries_generated["standard"] = standard_query
+            else:
+                # Use original query
+                standard_query = query
+                hyde_query = None
+                queries_generated["standard"] = standard_query
+
+            stats.query_generation_time_ms = (time.time() - query_gen_start) * 1000
+
+            # ===================================================================
+            # STEP 2: DUAL VECTOR SEARCH (Phase 2: Standard + HyDE)
+            # ===================================================================
+            vector_search_start = time.time()
+            all_vector_results = []
+
+            # Search 1: Standard query (25 chunks)
+            embedding_1 = self.embedder.embed_query(standard_query)
+            results_1 = self.vectordb.search(
+                collection_name=collection_name,
+                query_vector=embedding_1,
+                limit=25,
+                filters=filters,
+            )
+            all_vector_results.extend(results_1)
+
+            # Search 2: HyDE query (25 chunks) if enabled
+            if enable_hyde and hyde_query and hyde_query != standard_query:
+                embedding_2 = self.embedder.embed_query(hyde_query)
+                results_2 = self.vectordb.search(
+                    collection_name=collection_name,
+                    query_vector=embedding_2,
+                    limit=25,
+                    filters=filters,
+                )
+                all_vector_results.extend(results_2)
+
+            stats.vector_search_time_ms = (time.time() - vector_search_start) * 1000
+            stats.vector_search_chunks = len(all_vector_results)
+
+            # ===================================================================
+            # STEP 3: KEYWORD SEARCH (Phase 2: BM25)
+            # ===================================================================
+            keyword_results = []
+            if enable_keyword_search:
+                keyword_search_start = time.time()
+
+                try:
+                    from ..retrieval.keyword_search import BM25Searcher
+
+                    # Build BM25 searcher (caches corpus)
+                    bm25_searcher = BM25Searcher(self, collection_name)
+
+                    # Perform BM25 search using original query (not HyDE)
+                    bm25_results = bm25_searcher.search(
+                        query=query, limit=50, filters=filters
+                    )
+
+                    # Convert to VectorSearchResult-like objects
+                    for result in bm25_results:
+                        # Create a simple result object
+                        class BM25Result:
+                            def __init__(self, data):
+                                self.chunk_id = data["chunk_id"]
+                                self.score = data["score"]
+                                self.content = data["content"]
+                                self.metadata = data["metadata"]
+                                self.metadata["chunk_id"] = data["chunk_id"]
+
+                        keyword_results.append(BM25Result(result))
+
+                    stats.keyword_search_time_ms = (
+                        time.time() - keyword_search_start
+                    ) * 1000
+                    stats.keyword_search_chunks = len(keyword_results)
+
+                except Exception as e:
+                    print(f"   Warning: BM25 search failed: {e}")
+                    stats.keyword_search_time_ms = 0.0
+                    stats.keyword_search_chunks = 0
+            else:
+                stats.keyword_search_chunks = 0
+                stats.keyword_search_time_ms = 0.0
+
+            # ===================================================================
+            # STEP 4: COMBINE & DEDUPLICATE (Vector + Keyword results)
+            # ===================================================================
+            all_chunks = all_vector_results + keyword_results
+            stats.total_chunks_retrieved = len(all_chunks)
+
+            if deduplicate:
+                # Deduplicate by chunk_id, keep highest score
+                chunk_dict = {}
+                for chunk in all_chunks:
+                    chunk_id = chunk.chunk_id
+                    if chunk_id not in chunk_dict or chunk.score > chunk_dict[chunk_id].score:
+                        chunk_dict[chunk_id] = chunk
+                unique_chunks = list(chunk_dict.values())
+            else:
+                unique_chunks = all_chunks
+
+            stats.chunks_after_dedup = len(unique_chunks)
+
+            # Fetch content from MongoDB if enabled
+            mongodb_fetch_count = 0
+            if self.mongodb:
+                for result in unique_chunks:
+                    if result.metadata.get("content_storage") == "mongodb":
+                        mongodb_id = result.metadata.get("mongodb_id")
+                        if mongodb_id:
+                            mongo_doc = self.mongodb.get_chunk_content_by_mongo_id(
+                                str(mongodb_id)
+                            )
+                            if mongo_doc:
+                                result.content = mongo_doc.get("content", "")
+                                mongodb_fetch_count += 1
+
+                if mongodb_fetch_count > 0:
+                    print(f"   ✓ Fetched content for {mongodb_fetch_count} chunks from MongoDB")
+
+            # ===================================================================
+            # STEP 5: RERANKING (Phase 3 - Skipped for MVP)
+            # ===================================================================
+            # Sort by vector score (no reranking yet)
+            ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+            stats.reranking_time_ms = 0.0
+
+            # ===================================================================
+            # STEP 6: SELECTION & FORMATTING
+            # ===================================================================
+            print(f"   Step 6: Selecting top-{top_k} chunks from {len(ranked_chunks)} ranked chunks")
+
+            # Select top_k chunks
+            final_chunks = ranked_chunks[:top_k]
+            print(f"   After top-k selection: {len(final_chunks)} chunks")
+
+            # Apply score threshold if specified
+            if score_threshold is not None:
+                filtered_count = len(final_chunks)
+                final_chunks = [c for c in final_chunks if c.score >= score_threshold]
+                print(f"   After score threshold ({score_threshold}): {len(final_chunks)} chunks (filtered out: {filtered_count - len(final_chunks)})")
+
+            stats.chunks_after_reranking = len(final_chunks)
+            print(f"   ✓ Final chunks to return: {len(final_chunks)}")
+
+            # Convert to RetrievedChunk objects
+            retrieved_chunks = []
+            empty_content_count = 0
+            for rank, result in enumerate(final_chunks):
+                # Truncate content if needed
+                content = result.content if return_full_chunks else result.content[:500]
+
+                # Track empty content
+                if not content or len(content.strip()) == 0:
+                    empty_content_count += 1
+
+                chunk = RetrievedChunk(
+                    content=content,
+                    metadata=result.metadata,
+                    relevance_score=result.score,
+                    vector_score=result.score,
+                    rank=rank,
+                    keyword_score=None,  # Updated in Phase 2 if BM25 used
+                )
+                retrieved_chunks.append(chunk)
+
+            if empty_content_count > 0:
+                print(f"   ⚠️ Warning: {empty_content_count} chunks have empty content!")
+
+            print(f"   ✓ Returning {len(retrieved_chunks)} chunks with content")
+
+            # Calculate source statistics
+            source_stats = defaultdict(lambda: {"count": 0, "total_score": 0.0})
+            for chunk in retrieved_chunks:
+                source = chunk.metadata.get("source", "unknown")
+                source_stats[source]["count"] += 1
+                source_stats[source]["total_score"] += chunk.relevance_score
+
+            sources = [
+                SourceInfo(
+                    source=source,
+                    chunks_count=data["count"],
+                    avg_relevance=data["total_score"] / data["count"] if data["count"] > 0 else 0.0,
+                )
+                for source, data in source_stats.items()
+            ]
+
+            # Calculate total time
+            stats.total_time_ms = (time.time() - start_time) * 1000
+
+            return RetrievalResponse(
+                success=True,
+                query_original=query,
+                queries_generated=queries_generated,
+                chunks=retrieved_chunks,
+                retrieval_stats=stats,
+                sources=sources,
+                errors=[],
+            )
+
+        except Exception as e:
+            stats.total_time_ms = (time.time() - start_time) * 1000
+            return RetrievalResponse(
+                success=False,
+                query_original=query,
+                queries_generated=queries_generated,
+                retrieval_stats=stats,
+                errors=[f"Retrieval error: {str(e)}"],
+            )

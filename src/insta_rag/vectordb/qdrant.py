@@ -177,7 +177,7 @@ class QdrantVectorDB(BaseVectorDB):
             List of VectorSearchResult objects
         """
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue, QueryVector
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
 
             # Verify collection exists
             if not self.collection_exists(collection_name):
@@ -190,9 +190,11 @@ class QdrantVectorDB(BaseVectorDB):
             if filters:
                 conditions = []
                 for key, value in filters.items():
-                    conditions.append(
-                        FieldCondition(key=key, match=MatchValue(value=value))
-                    )
+                    # Skip empty or None values
+                    if value is not None and value != "" and value != {}:
+                        conditions.append(
+                            FieldCondition(key=key, match=MatchValue(value=value))
+                        )
 
                 if conditions:
                     query_filter = Filter(must=conditions)
