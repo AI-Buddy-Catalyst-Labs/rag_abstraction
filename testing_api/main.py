@@ -114,6 +114,62 @@ class AddDocumentResponse(BaseModel):
     errors: List[str] = []
 
 
+class SearchRequest(BaseModel):
+    """Request for searching/retrieving documents."""
+
+    query: str = Field(..., description="Search query")
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME, description="Collection name to search in"
+    )
+    top_k: int = Field(20, description="Number of results to return", ge=1, le=100)
+    filters: Optional[Dict[str, Any]] = Field(
+        None, description="Metadata filters (optional)"
+    )
+
+
+class RetrieveRequest(BaseModel):
+    """Request for advanced retrieval with hybrid search."""
+
+    query: str = Field(..., description="Search query")
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME, description="Collection name to search in"
+    )
+    filters: Optional[Dict[str, Any]] = Field(
+        None, description="Metadata filters (e.g., user_id, template_id)"
+    )
+    top_k: int = Field(20, description="Number of results to return", ge=1, le=100)
+    enable_reranking: bool = Field(
+        False, description="Use Cohere reranking (Phase 3)"
+    )
+    enable_keyword_search: bool = Field(
+        True, description="Include BM25 keyword search (Phase 2 - enabled by default)"
+    )
+    enable_hyde: bool = Field(
+        True, description="Use HyDE query generation (Phase 2 - enabled by default)"
+    )
+    score_threshold: Optional[float] = Field(
+        None, description="Minimum relevance score filter", ge=0.0, le=1.0
+    )
+    return_full_chunks: bool = Field(
+        True, description="Return complete vs truncated content"
+    )
+    deduplicate: bool = Field(True, description="Remove duplicate chunks")
+
+
+class SearchResponse(BaseModel):
+    """Search/retrieval response."""
+
+    success: bool
+    query: str
+    queries_generated: Optional[Dict[str, str]] = None
+    chunks_count: int
+    retrieval_time_ms: float
+    chunks: List[Dict[str, Any]]
+    sources: List[Dict[str, Any]] = []
+    stats: Dict[str, Any]
+    errors: List[str] = []
+
+
 class CollectionInfoResponse(BaseModel):
     """Collection information response."""
 
@@ -487,6 +543,169 @@ async def test_add_document_file(
             "success": False,
             "errors": [f"Unexpected error: {str(e)}"],
         })
+
+
+# Advanced Retrieval Endpoint (Phase 2 - HyDE + BM25)
+@app.post("/api/v1/retrieve", response_model=SearchResponse)
+async def retrieve_documents(request: RetrieveRequest):
+    """
+    Advanced retrieval with hybrid search (Phase 2 - HyDE + BM25).
+
+    Phase 2 Features (ENABLED BY DEFAULT):
+    - HyDE query generation using Azure OpenAI
+    - Dual vector search (standard + HyDE queries)
+    - BM25 keyword search for exact term matching
+    - Smart deduplication across all results
+    - MongoDB content fetching (if enabled)
+    - Comprehensive performance stats
+
+    Future Phases:
+    - Phase 3: Cohere reranking
+
+    This endpoint provides more advanced retrieval than /api/v1/search,
+    with hybrid semantic + keyword search for better results.
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Call the new retrieve() method
+        response = rag_client.retrieve(
+            query=request.query,
+            collection_name=request.collection_name,
+            filters=request.filters,
+            top_k=request.top_k,
+            enable_reranking=request.enable_reranking,
+            enable_keyword_search=request.enable_keyword_search,
+            enable_hyde=request.enable_hyde,
+            score_threshold=request.score_threshold,
+            return_full_chunks=request.return_full_chunks,
+            deduplicate=request.deduplicate,
+        )
+
+        # Convert to SearchResponse format
+        chunks_data = [chunk.to_dict() for chunk in response.chunks]
+
+        return SearchResponse(
+            success=response.success,
+            query=response.query_original,
+            queries_generated=response.queries_generated,
+            chunks_count=len(response.chunks),
+            retrieval_time_ms=response.retrieval_stats.total_time_ms,
+            chunks=chunks_data,
+            sources=[source.to_dict() for source in response.sources],
+            stats=response.retrieval_stats.to_dict(),
+            errors=response.errors,
+        )
+
+    except Exception as e:
+        return SearchResponse(
+            success=False,
+            query=request.query,
+            chunks_count=0,
+            retrieval_time_ms=0,
+            chunks=[],
+            stats={},
+            errors=[f"Retrieve error: {str(e)}"],
+        )
+
+
+# Search/Retrieval Testing Endpoints
+@app.post("/api/v1/search", response_model=SearchResponse)
+async def search_documents(request: SearchRequest):
+    """Search for relevant documents using vector similarity.
+
+    This endpoint performs semantic search using:
+    1. Query embedding generation
+    2. Vector similarity search in Qdrant
+    3. Content retrieval from MongoDB (if enabled)
+    4. Results ranking and scoring
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Perform search
+        response = rag_client.search(
+            query=request.query,
+            collection_name=request.collection_name,
+            top_k=request.top_k,
+            filters=request.filters,
+        )
+
+        # Convert chunks to dicts
+        chunks_data = [chunk.to_dict() for chunk in response.chunks]
+
+        return SearchResponse(
+            success=response.success,
+            query=response.query_original,
+            chunks_count=len(response.chunks),
+            retrieval_time_ms=response.retrieval_stats.total_time_ms,
+            chunks=chunks_data,
+            sources=[source.to_dict() for source in response.sources],
+            stats=response.retrieval_stats.to_dict(),
+            errors=response.errors,
+        )
+
+    except Exception as e:
+        return SearchResponse(
+            success=False,
+            query=request.query,
+            chunks_count=0,
+            retrieval_time_ms=0,
+            chunks=[],
+            stats={},
+            errors=[f"Search error: {str(e)}"],
+        )
+
+
+@app.post("/api/v1/test/retrieval/search", response_model=SearchResponse)
+async def test_retrieval_search(request: SearchRequest):
+    """Test retrieval/search functionality (alias for /api/v1/search)."""
+    return await search_documents(request)
+
+
+@app.get("/api/v1/test/retrieval/collection/{collection_name}/sample")
+async def get_collection_sample(
+    collection_name: str,
+    limit: int = 5,
+):
+    """Get sample chunks from a collection for testing.
+
+    This is useful for:
+    - Verifying data was uploaded correctly
+    - Inspecting chunk content and metadata
+    - Testing before performing searches
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Get collection info first
+        info = rag_client.get_collection_info(collection_name)
+
+        # Perform a dummy search to get sample results
+        # Use a generic query
+        sample_query = "sample"
+        response = rag_client.search(
+            query=sample_query,
+            collection_name=collection_name,
+            top_k=limit,
+        )
+
+        return JSONResponse(content={
+            "success": True,
+            "collection_name": collection_name,
+            "total_vectors": info["vectors_count"],
+            "sample_count": len(response.chunks),
+            "samples": [chunk.to_dict() for chunk in response.chunks],
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=404)
 
 
 # Integration Test Endpoint

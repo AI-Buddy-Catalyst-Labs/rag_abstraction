@@ -11,8 +11,13 @@ info:
     - Vector database operations (Qdrant)
     - PDF processing
     - Complete document processing pipeline
+    - Advanced retrieval with Phase 2 features (HyDE + BM25)
     - Integration testing
-  version: 0.0.1
+
+    **Phase 2 Hybrid Retrieval:**
+    The `/api/v1/retrieve` endpoint now includes HyDE query generation and BM25
+    keyword search by default for improved retrieval quality.
+  version: 0.0.2
   contact:
     name: insta_rag Team
     url: https://github.com/AI-Buddy-Catalyst-Labs/insta_rag
@@ -38,6 +43,8 @@ tags:
     description: PDF text extraction
   - name: Documents
     description: Complete document processing
+  - name: Search & Retrieval
+    description: Semantic search and document retrieval
   - name: Integration
     description: Integration testing
 
@@ -334,6 +341,216 @@ paths:
                     items:
                       type: string
 
+  /api/v1/retrieve:
+    post:
+      tags:
+        - Search & Retrieval
+      summary: Advanced Retrieve (Phase 2 - HyDE + BM25)
+      description: |
+        Advanced retrieval with hybrid search capabilities.
+
+        **Phase 2 Features (ENABLED BY DEFAULT):**
+        - ✅ HyDE query generation using Azure OpenAI LLM
+        - ✅ Dual vector search (standard + HyDE queries, 25 chunks each)
+        - ✅ BM25 keyword search for exact term matching (50 chunks)
+        - ✅ Smart deduplication across all sources
+        - ✅ MongoDB content fetching (if enabled)
+        - ✅ Comprehensive performance statistics
+
+        **Future Phases:**
+        - Phase 3: Cohere reranking
+
+        **How it works:**
+        1. Query Generation: HyDE generates optimized + hypothetical queries
+        2. Vector Search: Searches with both standard and HyDE queries
+        3. Keyword Search: BM25 finds exact term matches
+        4. Deduplication: Removes duplicates, keeps highest scores
+        5. Selection: Returns top-k results with stats
+
+        **Expected Performance:**
+        - 20-30% better retrieval quality with HyDE
+        - Better exact match coverage with BM25
+        - ~9-13s total time (with all features)
+        - Graceful fallback if features unavailable
+      operationId: retrieve_documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrieveRequest'
+            example:
+              query: "What is semantic chunking?"
+              collection_name: "insta_rag_test_collection"
+              top_k: 10
+              enable_reranking: false
+              enable_keyword_search: true
+              enable_hyde: true
+              filters: null
+              score_threshold: null
+              return_full_chunks: true
+              deduplicate: true
+      responses:
+        '200':
+          description: Retrieval results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+  /api/v1/search:
+    post:
+      tags:
+        - Search & Retrieval
+      summary: Simple Search
+      description: |
+        Simple semantic search using vector similarity.
+
+        For advanced features, use /api/v1/retrieve instead.
+
+        This endpoint:
+        1. Generates query embedding using Azure OpenAI
+        2. Performs vector similarity search in Qdrant
+        3. Retrieves content from MongoDB (if enabled)
+        4. Returns ranked results with relevance scores
+      operationId: search_documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+            example:
+              query: "What is semantic chunking?"
+              collection_name: "insta_rag_test_collection"
+              top_k: 10
+              filters: null
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+              example:
+                success: true
+                query: "What is semantic chunking?"
+                queries_generated:
+                  original: "What is semantic chunking?"
+                chunks_count: 10
+                retrieval_time_ms: 450.5
+                chunks:
+                  - content: "Semantic chunking is a method..."
+                    metadata:
+                      document_id: "abc123"
+                      source: "document.pdf"
+                      chunk_index: 0
+                      token_count: 850
+                    relevance_score: 0.92
+                    vector_score: 0.92
+                    rank: 0
+                sources:
+                  - source: "document.pdf"
+                    chunks_count: 8
+                    avg_relevance: 0.87
+                stats:
+                  total_chunks_retrieved: 10
+                  vector_search_chunks: 10
+                  keyword_search_chunks: 0
+                  chunks_after_dedup: 10
+                  chunks_after_reranking: 10
+                  query_generation_time_ms: 0
+                  vector_search_time_ms: 330.2
+                  keyword_search_time_ms: 0
+                  reranking_time_ms: 0
+                  total_time_ms: 450.5
+                errors: []
+
+  /api/v1/test/retrieval/search:
+    post:
+      tags:
+        - Search & Retrieval
+      summary: Test Retrieval Search
+      description: Test retrieval/search functionality (alias for /api/v1/search)
+      operationId: test_retrieval_search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+  /api/v1/test/retrieval/collection/{collection_name}/sample:
+    get:
+      tags:
+        - Search & Retrieval
+      summary: Get Collection Sample
+      description: |
+        Get sample chunks from a collection for testing purposes.
+
+        Useful for:
+        - Verifying data upload
+        - Inspecting chunk content and metadata
+        - Testing before performing searches
+      operationId: get_collection_sample
+      parameters:
+        - name: collection_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Collection name
+          example: insta_rag_test_collection
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+          description: Number of sample chunks to retrieve
+      responses:
+        '200':
+          description: Sample chunks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  collection_name:
+                    type: string
+                  total_vectors:
+                    type: integer
+                  sample_count:
+                    type: integer
+                  samples:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        content:
+                          type: string
+                        metadata:
+                          type: object
+                        relevance_score:
+                          type: number
+                        vector_score:
+                          type: number
+                        rank:
+                          type: integer
+        '404':
+          description: Collection not found
+
   /api/v1/test/integration:
     get:
       tags:
@@ -539,6 +756,239 @@ components:
           items:
             type: string
 
+    RetrieveRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query text
+          minLength: 1
+          example: "What is semantic chunking?"
+        collection_name:
+          type: string
+          description: Collection name to search in
+          default: insta_rag_test_collection
+          example: insta_rag_test_collection
+        filters:
+          type: object
+          description: Metadata filters (e.g., user_id, template_id)
+          additionalProperties: true
+          nullable: true
+          example:
+            user_id: "user_123"
+            template_id: "template_456"
+        top_k:
+          type: integer
+          description: Number of results to return
+          default: 20
+          minimum: 1
+          maximum: 100
+          example: 10
+        enable_reranking:
+          type: boolean
+          description: Use Cohere reranking (Phase 3 - not yet implemented)
+          default: false
+        enable_keyword_search:
+          type: boolean
+          description: |
+            Include BM25 keyword search (Phase 2 - ENABLED BY DEFAULT).
+
+            Performs lexical search for exact term matches to complement semantic search.
+            Gracefully skips if content unavailable in Qdrant.
+          default: true
+        enable_hyde:
+          type: boolean
+          description: |
+            Use HyDE query generation (Phase 2 - ENABLED BY DEFAULT).
+
+            Generates optimized standard query + hypothetical answer for better retrieval.
+            Requires Azure OpenAI LLM deployment configured (AZURE_LLM_DEPLOYMENT).
+            Falls back to original query if unavailable.
+          default: true
+        score_threshold:
+          type: number
+          description: Minimum relevance score filter
+          minimum: 0.0
+          maximum: 1.0
+          nullable: true
+          example: 0.7
+        return_full_chunks:
+          type: boolean
+          description: Return complete vs truncated content
+          default: true
+        deduplicate:
+          type: boolean
+          description: Remove duplicate chunks
+          default: true
+
+    SearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query text
+          minLength: 1
+          example: "What is semantic chunking?"
+        collection_name:
+          type: string
+          description: Collection name to search in
+          default: insta_rag_test_collection
+          example: insta_rag_test_collection
+        top_k:
+          type: integer
+          description: Number of results to return
+          default: 20
+          minimum: 1
+          maximum: 100
+          example: 10
+        filters:
+          type: object
+          description: Optional metadata filters
+          additionalProperties: true
+          nullable: true
+          example:
+            document_id: "abc123"
+
+    SearchResponse:
+      type: object
+      required:
+        - success
+        - query
+        - chunks_count
+        - retrieval_time_ms
+        - chunks
+        - stats
+      properties:
+        success:
+          type: boolean
+        query:
+          type: string
+          description: Original search query
+        queries_generated:
+          type: object
+          description: |
+            Generated queries (Phase 2 HyDE feature).
+
+            Contains:
+            - original: The original user query
+            - standard: Optimized query (from HyDE)
+            - hyde: Hypothetical answer query (from HyDE)
+          additionalProperties:
+            type: string
+          example:
+            original: "What is semantic chunking?"
+            standard: "semantic chunking text splitting method"
+            hyde: "Semantic chunking is a method of dividing text..."
+        chunks_count:
+          type: integer
+          description: Number of chunks retrieved
+        retrieval_time_ms:
+          type: number
+          description: Total retrieval time in milliseconds
+        chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetrievedChunk'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceInfo'
+          description: Aggregated source information
+        stats:
+          $ref: '#/components/schemas/RetrievalStats'
+        errors:
+          type: array
+          items:
+            type: string
+
+    RetrievedChunk:
+      type: object
+      required:
+        - content
+        - metadata
+        - relevance_score
+        - vector_score
+        - rank
+      properties:
+        content:
+          type: string
+          description: Chunk text content
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Chunk metadata
+        relevance_score:
+          type: number
+          description: Reranker score (0-1)
+          minimum: 0
+          maximum: 1
+        vector_score:
+          type: number
+          description: Vector similarity score
+        keyword_score:
+          type: number
+          description: BM25 keyword score (optional)
+          nullable: true
+        rank:
+          type: integer
+          description: Position in results
+          minimum: 0
+
+    SourceInfo:
+      type: object
+      required:
+        - source
+        - chunks_count
+        - avg_relevance
+      properties:
+        source:
+          type: string
+          description: Source document name
+        chunks_count:
+          type: integer
+          description: Number of chunks from this source
+        avg_relevance:
+          type: number
+          description: Average relevance score
+
+    RetrievalStats:
+      type: object
+      properties:
+        total_chunks_retrieved:
+          type: integer
+          description: Total chunks retrieved
+        vector_search_chunks:
+          type: integer
+          description: Chunks from vector search
+        keyword_search_chunks:
+          type: integer
+          description: Chunks from keyword search
+        chunks_after_dedup:
+          type: integer
+          description: Chunks after deduplication
+        chunks_after_reranking:
+          type: integer
+          description: Final chunk count after reranking
+        query_generation_time_ms:
+          type: number
+          description: Time for query generation
+        vector_search_time_ms:
+          type: number
+          description: Time for vector search
+        keyword_search_time_ms:
+          type: number
+          description: Time for keyword search
+        reranking_time_ms:
+          type: number
+          description: Time for reranking
+        total_time_ms:
+          type: number
+          description: Total retrieval time
+
     TestResult:
       type: object
       required:
@@ -561,3 +1011,49 @@ components:
           type: integer
         processing_time_ms:
           type: number
+
+  # Configuration Documentation
+  x-configuration:
+    description: |
+      Required environment variables for insta_rag API
+
+    required:
+      - name: QDRANT_URL
+        description: Qdrant vector database URL
+        example: "https://your-instance.cloud.qdrant.io"
+
+      - name: QDRANT_API_KEY
+        description: Qdrant API key
+        example: "your_qdrant_api_key"
+
+      - name: AZURE_OPENAI_ENDPOINT
+        description: Azure OpenAI endpoint URL
+        example: "https://your-resource.openai.azure.com/"
+
+      - name: AZURE_OPENAI_API_KEY
+        description: Azure OpenAI API key
+        example: "your_azure_api_key"
+
+      - name: AZURE_EMBEDDING_DEPLOYMENT
+        description: Azure OpenAI embedding deployment name
+        example: "text-embedding-3-large"
+
+    optional:
+      - name: AZURE_LLM_DEPLOYMENT
+        description: |
+          Azure OpenAI LLM deployment for HyDE query generation (Phase 2).
+          Required for HyDE feature. Falls back to original query if not configured.
+        example: "gpt-4"
+
+      - name: MONGO_CONNECTION_STRING
+        description: MongoDB connection string for content storage
+        example: "mongodb://user:pass@host:port/"
+
+      - name: COHERE_API_KEY
+        description: Cohere API key for reranking (Phase 3 - future)
+        example: "your_cohere_api_key"
+
+    notes:
+      - HyDE query generation requires AZURE_LLM_DEPLOYMENT
+      - BM25 keyword search requires content in Qdrant (works best without MongoDB content storage)
+      - All Phase 2 features gracefully fallback if configuration missing
