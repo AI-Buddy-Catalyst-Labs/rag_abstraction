@@ -139,7 +139,7 @@ class RetrieveRequest(BaseModel):
     )
     top_k: int = Field(20, description="Number of results to return", ge=1, le=100)
     enable_reranking: bool = Field(
-        False, description="Use Cohere reranking (Phase 3)"
+        True, description="Use BGE reranking (Phase 4 - enabled by default)"
     )
     enable_keyword_search: bool = Field(
         True, description="Include BM25 keyword search (Phase 2 - enabled by default)"
@@ -148,7 +148,8 @@ class RetrieveRequest(BaseModel):
         True, description="Use HyDE query generation (Phase 2 - enabled by default)"
     )
     score_threshold: Optional[float] = Field(
-        0.1, description="Minimum relevance score filter", ge=0.0, le=1.0
+        None,
+        description="Minimum relevance score filter (use negative values for BGE reranker, e.g., -5.0)"
     )
     return_full_chunks: bool = Field(
         True, description="Return complete vs truncated content"
@@ -549,21 +550,24 @@ async def test_add_document_file(
 @app.post("/api/v1/retrieve", response_model=SearchResponse)
 async def retrieve_documents(request: RetrieveRequest):
     """
-    Advanced retrieval with hybrid search (Phase 2 - HyDE + BM25).
+    Advanced retrieval with hybrid search (Phase 4 - HyDE + BM25 + Reranking).
 
-    Phase 2 Features (ENABLED BY DEFAULT):
+    Phase 4 Features (ENABLED BY DEFAULT):
     - HyDE query generation using Azure OpenAI
     - Dual vector search (standard + HyDE queries)
     - BM25 keyword search for exact term matching
+    - BGE reranking (BAAI/bge-reranker-v2-m3) for improved relevance
     - Smart deduplication across all results
     - MongoDB content fetching (if enabled)
     - Comprehensive performance stats
 
-    Future Phases:
-    - Phase 3: Cohere reranking
+    Note on score_threshold:
+    - BGE reranker produces negative scores (higher = more relevant)
+    - Use negative thresholds like -5.0 for filtering
+    - Set to null/None for no filtering (recommended)
 
     This endpoint provides more advanced retrieval than /api/v1/search,
-    with hybrid semantic + keyword search for better results.
+    with hybrid semantic + keyword search + reranking for better results.
     """
     try:
         if not rag_client:

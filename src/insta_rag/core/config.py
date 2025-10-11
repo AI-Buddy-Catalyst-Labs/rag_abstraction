@@ -59,16 +59,24 @@ class EmbeddingConfig:
 class RerankingConfig:
     """Reranking configuration."""
 
-    provider: str = "cohere"  # cohere, cross_encoder
-    model: str = "rerank-v3.5"
+    provider: str = "bge"  # bge, cohere, cross_encoder
+    model: str = "BAAI/bge-reranker-v2-m3"
     api_key: Optional[str] = None
+    api_url: Optional[str] = "http://118.67.212.45:8000/rerank"  # For BGE reranker
     top_k: int = 20
     enabled: bool = True
+    normalize: bool = False  # For BGE reranker
+    timeout: int = 30  # Request timeout in seconds
 
     def validate(self) -> None:
         """Validate reranking configuration."""
-        if self.enabled and self.provider == "cohere" and not self.api_key:
-            raise ConfigurationError("Cohere API key is required for reranking")
+        if self.enabled:
+            if self.provider == "cohere" and not self.api_key:
+                raise ConfigurationError("Cohere API key is required for reranking")
+            elif self.provider == "bge" and not self.api_key:
+                raise ConfigurationError("BGE reranker API key is required")
+            elif self.provider == "bge" and not self.api_url:
+                raise ConfigurationError("BGE reranker API URL is required")
 
 
 @dataclass
@@ -256,13 +264,35 @@ class RAGConfig:
                 api_key=openai_key,
             )
 
-        # Reranking config
-        reranking_config = RerankingConfig(
-            provider="cohere",
-            model="rerank-v3.5",
-            api_key=os.getenv("COHERE_API_KEY"),
-            enabled=bool(os.getenv("COHERE_API_KEY")),  # Auto-disable if no key
-        )
+        # Reranking config - prioritize BGE reranker
+        bge_api_key = os.getenv("BGE_RERANKER_API_KEY")
+        cohere_api_key = os.getenv("COHERE_API_KEY")
+
+        if bge_api_key:
+            # Use BGE reranker if API key is available
+            reranking_config = RerankingConfig(
+                provider="bge",
+                model="BAAI/bge-reranker-v2-m3",
+                api_key=bge_api_key,
+                api_url=os.getenv("BGE_RERANKER_URL", "http://118.67.212.45:8000/rerank"),
+                enabled=True,
+                normalize=False,
+            )
+        elif cohere_api_key:
+            # Fallback to Cohere if available
+            reranking_config = RerankingConfig(
+                provider="cohere",
+                model="rerank-v3.5",
+                api_key=cohere_api_key,
+                enabled=True,
+            )
+        else:
+            # No reranking available
+            reranking_config = RerankingConfig(
+                provider="bge",
+                model="BAAI/bge-reranker-v2-m3",
+                enabled=False,
+            )
 
         # MongoDB config
         mongo_connection = os.getenv("MONGO_CONNECTION_STRING")
