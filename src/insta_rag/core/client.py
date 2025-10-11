@@ -471,7 +471,7 @@ class RAGClient:
         collection_name: str,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 20,
-        enable_reranking: bool = False,  # Phase 3 - Cohere reranking
+        enable_reranking: bool = True,  # Phase 4 - BGE reranking ENABLED BY DEFAULT
         enable_keyword_search: bool = True,  # Phase 2 - ENABLED BY DEFAULT
         enable_hyde: bool = True,  # Phase 2 - ENABLED BY DEFAULT
         score_threshold: Optional[float] = None,
@@ -479,27 +479,27 @@ class RAGClient:
         deduplicate: bool = True,
     ):
         """
-        Advanced hybrid retrieval method (Phase 2 - with HyDE + BM25).
+        Advanced hybrid retrieval method (Phase 4 - with HyDE + BM25 + Reranking).
 
-        Phase 2 implements:
+        Phase 4 implements:
         - HyDE query generation using Azure OpenAI
         - Dual vector search (standard + HyDE queries)
         - BM25 keyword search for exact term matching
         - Smart deduplication
+        - BGE reranking (BAAI/bge-reranker-v2-m3)
         - MongoDB content fetching (if enabled)
-
-        Future phases:
-        - Phase 3: Cohere reranking
 
         Args:
             query: User's search question
             collection_name: Target Qdrant collection
             filters: Metadata filters (e.g., {"user_id": "123", "template_id": "456"})
             top_k: Final number of chunks to return (default: 20)
-            enable_reranking: Use Cohere reranking (Phase 3 - not yet implemented)
+            enable_reranking: Use BGE reranking (Phase 4 - default: True)
             enable_keyword_search: Include BM25 keyword search (default: True)
             enable_hyde: Use HyDE query generation (default: True)
             score_threshold: Minimum relevance score filter (optional)
+                Note: BGE reranker produces negative scores (higher = more relevant)
+                Use negative thresholds like -5.0 for BGE, or 0.5 for normalized scores
             return_full_chunks: Return complete vs truncated content (default: True)
             deduplicate: Remove duplicate chunks (default: True)
 
@@ -691,11 +691,70 @@ class RAGClient:
                     print(f"   ✓ Fetched content for {mongodb_fetch_count} chunks from MongoDB")
 
             # ===================================================================
-            # STEP 5: RERANKING (Phase 3 - Skipped for MVP)
+            # STEP 5: RERANKING (Phase 4 - BGE Reranking)
             # ===================================================================
-            # Sort by vector score (no reranking yet)
-            ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
-            stats.reranking_time_ms = 0.0
+            print(f"\n🎯 Reranking:")
+            reranking_start = time.time()
+
+            if enable_reranking and self.config.reranking.enabled:
+                try:
+                    print(f"   Reranking {len(unique_chunks)} chunks using {self.config.reranking.provider}...")
+
+                    # Initialize reranker
+                    if self.config.reranking.provider == "bge":
+                        from ..retrieval.reranker import BGEReranker
+
+                        reranker = BGEReranker(
+                            api_key=self.config.reranking.api_key,
+                            api_url=self.config.reranking.api_url,
+                            normalize=self.config.reranking.normalize,
+                            timeout=self.config.reranking.timeout,
+                        )
+                    elif self.config.reranking.provider == "cohere":
+                        from ..retrieval.reranker import CohereReranker
+
+                        reranker = CohereReranker(
+                            api_key=self.config.reranking.api_key,
+                            model=self.config.reranking.model,
+                        )
+                    else:
+                        raise ValueError(f"Unknown reranker provider: {self.config.reranking.provider}")
+
+                    # Prepare chunks for reranking: list of (content, metadata) tuples
+                    chunks_for_reranking = [
+                        (chunk.content, chunk.metadata) for chunk in unique_chunks
+                    ]
+
+                    # Rerank - returns list of (original_index, relevance_score) tuples
+                    reranked_results = reranker.rerank(
+                        query=query,
+                        chunks=chunks_for_reranking,
+                        top_k=min(self.config.reranking.top_k, len(unique_chunks))
+                    )
+
+                    # Apply reranking scores and reorder chunks
+                    ranked_chunks = []
+                    for original_index, rerank_score in reranked_results:
+                        chunk = unique_chunks[original_index]
+                        # Update the score with reranking score
+                        chunk.score = rerank_score
+                        ranked_chunks.append(chunk)
+
+                    stats.reranking_time_ms = (time.time() - reranking_start) * 1000
+                    print(f"   ✓ Reranked to {len(ranked_chunks)} chunks ({stats.reranking_time_ms:.2f}ms)")
+                    print(f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}")
+
+                except Exception as e:
+                    print(f"   ⚠️ Warning: Reranking failed: {e}")
+                    print(f"   Falling back to vector score sorting...")
+                    # Fallback to vector score sorting
+                    ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+                    stats.reranking_time_ms = (time.time() - reranking_start) * 1000
+            else:
+                # Reranking disabled - sort by vector score
+                ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+                stats.reranking_time_ms = 0.0
+                print(f"   Reranking: Disabled")
 
             # ===================================================================
             # STEP 6: SELECTION & FORMATTING
