@@ -60,6 +60,8 @@ class RAGClient:
             api_key=self.config.vectordb.api_key,
             timeout=self.config.vectordb.timeout,
             prefer_grpc=self.config.vectordb.prefer_grpc,
+            https=self.config.vectordb.https,
+            verify_ssl=self.config.vectordb.verify_ssl,
         )
 
         # Initialize MongoDB client (if configured)

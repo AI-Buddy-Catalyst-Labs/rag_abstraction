@@ -16,6 +16,8 @@ class VectorDBConfig:
     provider: str = "qdrant"
     timeout: int = 30
     prefer_grpc: bool = False  # Changed to False to avoid connection issues
+    https: Optional[bool] = None  # Auto-detect from URL if None
+    verify_ssl: bool = False  # Set to False for self-signed certificates
 
     def validate(self) -> None:
         """Validate vector database configuration."""

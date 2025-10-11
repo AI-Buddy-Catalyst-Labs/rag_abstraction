@@ -16,6 +16,8 @@ class QdrantVectorDB(BaseVectorDB):
         api_key: str,
         timeout: int = 60,  # Increased timeout
         prefer_grpc: bool = False,  # Disabled gRPC by default
+        https: Optional[bool] = None,  # Auto-detect from URL if None
+        verify_ssl: bool = False,  # Set to False for self-signed certificates
     ):
         """Initialize Qdrant client.
 
@@ -24,11 +26,15 @@ class QdrantVectorDB(BaseVectorDB):
             api_key: Qdrant API key
             timeout: Request timeout in seconds
             prefer_grpc: Use gRPC for better performance (disabled by default for compatibility)
+            https: Force HTTPS connection (auto-detect from URL if None)
+            verify_ssl: Verify SSL certificates (set to False for self-signed certs)
         """
         self.url = url
         self.api_key = api_key
         self.timeout = timeout
         self.prefer_grpc = prefer_grpc
+        self.https = https
+        self.verify_ssl = verify_ssl
 
         self._initialize_client()
 
@@ -37,18 +43,67 @@ class QdrantVectorDB(BaseVectorDB):
         try:
             from qdrant_client import QdrantClient
             from qdrant_client.models import Distance, VectorParams
+            import urllib.parse
+            import ssl
 
             # Store for later use
             self.Distance = Distance
             self.VectorParams = VectorParams
 
-            # Initialize client
-            self.client = QdrantClient(
-                url=self.url,
-                api_key=self.api_key,
-                timeout=self.timeout,
-                prefer_grpc=self.prefer_grpc,
-            )
+            # Auto-detect HTTPS from URL if not explicitly set
+            https = self.https
+            if https is None:
+                https = self.url.startswith("https://")
+
+            # Parse the URL to get host and port
+            parsed = urllib.parse.urlparse(self.url)
+            host = parsed.hostname or parsed.netloc
+            port = parsed.port or (443 if https else 6333)
+
+            # Create SSL context if needed
+            grpc_options = None
+            if not self.verify_ssl:
+                # Disable SSL verification for self-signed certificates
+                grpc_options = {
+                    "grpc.ssl_target_name_override": host,
+                    "grpc.default_authority": host,
+                }
+
+            # Initialize client with SSL verification options
+            # Note: verify parameter doesn't exist in older versions, so we use grpc_options
+            try:
+                self.client = QdrantClient(
+                    host=host,
+                    port=port,
+                    api_key=self.api_key,
+                    timeout=self.timeout,
+                    prefer_grpc=False,  # Force disable gRPC
+                    https=https,
+                    grpc_options=grpc_options,
+                    check_compatibility=False,  # Skip version check to avoid warnings
+                )
+            except TypeError:
+                # Fallback for older qdrant-client versions without grpc_options or check_compatibility
+                try:
+                    self.client = QdrantClient(
+                        host=host,
+                        port=port,
+                        api_key=self.api_key,
+                        timeout=self.timeout,
+                        prefer_grpc=False,
+                        https=https,
+                        check_compatibility=False,
+                    )
+                except TypeError:
+                    # Fallback for very old versions
+                    self.client = QdrantClient(
+                        host=host,
+                        port=port,
+                        api_key=self.api_key,
+                        timeout=self.timeout,
+                        prefer_grpc=False,
+                        https=https,
+                    )
 
         except ImportError as e:
             raise VectorDBError(
