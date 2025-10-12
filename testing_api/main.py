@@ -179,6 +179,45 @@ class CollectionInfoResponse(BaseModel):
     status: str
 
 
+class UpdateDocumentRequest(BaseModel):
+    """Request for updating documents."""
+
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME, description="Collection name"
+    )
+    update_strategy: str = Field(
+        ..., description="Update strategy: replace, append, delete, upsert"
+    )
+    filters: Optional[Dict[str, Any]] = Field(
+        None, description="Metadata filters to match documents"
+    )
+    document_ids: Optional[List[str]] = Field(
+        None, description="Specific document IDs to target"
+    )
+    new_documents_text: Optional[List[str]] = Field(
+        None, description="List of text content for new documents"
+    )
+    metadata_updates: Optional[Dict[str, Any]] = Field(
+        None, description="Metadata fields to update"
+    )
+    reprocess_chunks: bool = Field(
+        True, description="If True, regenerate chunks and embeddings"
+    )
+
+
+class UpdateDocumentResponse(BaseModel):
+    """Update document response."""
+
+    success: bool
+    strategy_used: str
+    documents_affected: int
+    chunks_deleted: int
+    chunks_added: int
+    chunks_updated: int
+    updated_document_ids: List[str]
+    errors: List[str] = []
+
+
 # Startup event
 @app.on_event("startup")
 async def startup_event():
@@ -544,6 +583,387 @@ async def test_add_document_file(
             "success": False,
             "errors": [f"Unexpected error: {str(e)}"],
         })
+
+
+# Document Update Testing Endpoints
+@app.post("/api/v1/test/documents/update", response_model=UpdateDocumentResponse)
+async def test_update_documents(request: UpdateDocumentRequest):
+    """Test document update operations (replace, append, delete, upsert).
+
+    This endpoint provides flexible document management:
+    - replace: Delete existing documents and add new ones
+    - append: Add new documents without deleting
+    - delete: Remove documents matching criteria
+    - upsert: Update if exists, insert if doesn't
+
+    Supports:
+    - Filtering by metadata or document IDs
+    - Metadata-only updates (reprocess_chunks=False)
+    - Full document replacement with new content
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Convert text list to DocumentInput objects
+        new_documents = None
+        if request.new_documents_text:
+            new_documents = [
+                DocumentInput.from_text(
+                    text=text,
+                    metadata=request.metadata_updates or {},
+                )
+                for text in request.new_documents_text
+            ]
+
+        # Call update_documents
+        response = rag_client.update_documents(
+            collection_name=request.collection_name,
+            update_strategy=request.update_strategy,
+            filters=request.filters,
+            document_ids=request.document_ids,
+            new_documents=new_documents,
+            metadata_updates=request.metadata_updates,
+            reprocess_chunks=request.reprocess_chunks,
+        )
+
+        return UpdateDocumentResponse(
+            success=response.success,
+            strategy_used=response.strategy_used,
+            documents_affected=response.documents_affected,
+            chunks_deleted=response.chunks_deleted,
+            chunks_added=response.chunks_added,
+            chunks_updated=response.chunks_updated,
+            updated_document_ids=response.updated_document_ids,
+            errors=response.errors,
+        )
+
+    except Exception as e:
+        return UpdateDocumentResponse(
+            success=False,
+            strategy_used=request.update_strategy,
+            documents_affected=0,
+            chunks_deleted=0,
+            chunks_added=0,
+            chunks_updated=0,
+            updated_document_ids=[],
+            errors=[f"Update error: {str(e)}"],
+        )
+
+
+class DeleteDocumentRequest(BaseModel):
+    """Request for DELETE strategy."""
+    collection_name: str = Field(TEST_COLLECTION_NAME, description="Collection name")
+    filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters")
+    document_ids: Optional[List[str]] = Field(None, description="Document IDs to delete")
+
+
+class AppendDocumentRequest(BaseModel):
+    """Request for APPEND strategy."""
+    collection_name: str = Field(TEST_COLLECTION_NAME, description="Collection name")
+    new_documents_text: List[str] = Field(..., description="List of text documents to append")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata for documents")
+
+
+class ReplaceDocumentRequest(BaseModel):
+    """Request for REPLACE strategy."""
+    collection_name: str = Field(TEST_COLLECTION_NAME, description="Collection name")
+    new_documents_text: List[str] = Field(..., description="Replacement documents")
+    filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters")
+    document_ids: Optional[List[str]] = Field(None, description="Document IDs to replace")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata for documents")
+
+
+class UpsertDocumentRequest(BaseModel):
+    """Request for UPSERT strategy."""
+    collection_name: str = Field(TEST_COLLECTION_NAME, description="Collection name")
+    new_documents_text: List[str] = Field(..., description="Documents to upsert")
+    document_ids: Optional[List[str]] = Field(None, description="Document IDs (must match length of texts)")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata for documents")
+
+
+class MetadataUpdateRequest(BaseModel):
+    """Request for metadata-only update."""
+    collection_name: str = Field(TEST_COLLECTION_NAME, description="Collection name")
+    metadata_updates: Dict[str, Any] = Field(..., description="Metadata fields to update")
+    filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters")
+    document_ids: Optional[List[str]] = Field(None, description="Document IDs to update")
+
+
+@app.delete("/api/v1/test/collections/{collection_name}/clear")
+async def clear_collection(collection_name: str):
+    """Clear all data from a collection (Qdrant + MongoDB)."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Get initial stats
+        info = rag_client.get_collection_info(collection_name)
+        initial_vectors = info['vectors_count']
+
+        # Clear Qdrant - delete and recreate collection
+        rag_client.vectordb.client.delete_collection(collection_name=collection_name)
+        rag_client.vectordb.create_collection(
+            collection_name=collection_name,
+            vector_size=rag_client.embedder.get_dimensions(),
+            distance_metric="cosine"
+        )
+
+        # Clear MongoDB
+        mongo_chunks_deleted = 0
+        mongo_docs_deleted = 0
+        if rag_client.mongodb:
+            mongo_chunks_deleted = rag_client.mongodb.delete_chunks_by_collection(collection_name)
+            mongo_docs_deleted = rag_client.mongodb.db.document_metadata.delete_many(
+                {"collection_name": collection_name}
+            ).deleted_count
+
+        return JSONResponse(content={
+            "success": True,
+            "collection_name": collection_name,
+            "qdrant_vectors_deleted": initial_vectors,
+            "mongodb_chunks_deleted": mongo_chunks_deleted,
+            "mongodb_docs_deleted": mongo_docs_deleted,
+            "message": "Collection cleared successfully"
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
+
+
+@app.get("/api/v1/test/documents/list/{collection_name}")
+async def list_document_ids(collection_name: str, limit: int = 50):
+    """List all document IDs in a collection for debugging."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Get all document IDs
+        doc_ids = rag_client.vectordb.get_document_ids(
+            collection_name=collection_name,
+            limit=limit
+        )
+
+        # Get chunk counts for each document
+        doc_info = []
+        for doc_id in doc_ids[:20]:  # Show details for first 20
+            chunk_count = rag_client.vectordb.count_chunks(
+                collection_name=collection_name,
+                document_ids=[doc_id]
+            )
+            doc_info.append({
+                "document_id": doc_id,
+                "chunk_count": chunk_count
+            })
+
+        return JSONResponse(content={
+            "success": True,
+            "collection_name": collection_name,
+            "total_documents": len(doc_ids),
+            "documents": doc_info,
+            "all_document_ids": doc_ids,
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
+
+
+@app.post("/api/v1/test/documents/update/delete")
+async def test_delete_documents(request: DeleteDocumentRequest):
+    """Test DELETE strategy: Remove documents from the knowledge base."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        print(f"\n[DELETE REQUEST] Collection: {request.collection_name}")
+        print(f"[DELETE REQUEST] Filters: {request.filters}")
+        print(f"[DELETE REQUEST] Document IDs: {request.document_ids}")
+
+        response = rag_client.update_documents(
+            collection_name=request.collection_name,
+            update_strategy="delete",
+            filters=request.filters,
+            document_ids=request.document_ids,
+        )
+
+        print(f"[DELETE RESPONSE] Success: {response.success}")
+        print(f"[DELETE RESPONSE] Chunks deleted: {response.chunks_deleted}")
+        print(f"[DELETE RESPONSE] Errors: {response.errors}")
+
+        return JSONResponse(content={
+            "success": response.success,
+            "strategy": "delete",
+            "chunks_deleted": response.chunks_deleted,
+            "documents_affected": response.documents_affected,
+            "document_ids": response.updated_document_ids,
+            "errors": response.errors,
+        })
+
+    except Exception as e:
+        print(f"[DELETE ERROR] {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }, status_code=400)
+
+
+@app.post("/api/v1/test/documents/update/append")
+async def test_append_documents(request: AppendDocumentRequest):
+    """Test APPEND strategy: Add new documents to the knowledge base."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Convert text to DocumentInput
+        new_documents = [
+            DocumentInput.from_text(text=text, metadata=request.metadata or {})
+            for text in request.new_documents_text
+        ]
+
+        response = rag_client.update_documents(
+            collection_name=request.collection_name,
+            update_strategy="append",
+            new_documents=new_documents,
+            metadata_updates=request.metadata,
+        )
+
+        return JSONResponse(content={
+            "success": response.success,
+            "strategy": "append",
+            "chunks_added": response.chunks_added,
+            "documents_affected": response.documents_affected,
+            "document_ids": response.updated_document_ids,
+            "errors": response.errors,
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
+
+
+@app.post("/api/v1/test/documents/update/replace")
+async def test_replace_documents(request: ReplaceDocumentRequest):
+    """Test REPLACE strategy: Replace existing documents with new ones."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Convert text to DocumentInput
+        new_documents = [
+            DocumentInput.from_text(text=text, metadata=request.metadata or {})
+            for text in request.new_documents_text
+        ]
+
+        response = rag_client.update_documents(
+            collection_name=request.collection_name,
+            update_strategy="replace",
+            filters=request.filters,
+            document_ids=request.document_ids,
+            new_documents=new_documents,
+            metadata_updates=request.metadata,
+        )
+
+        return JSONResponse(content={
+            "success": response.success,
+            "strategy": "replace",
+            "chunks_deleted": response.chunks_deleted,
+            "chunks_added": response.chunks_added,
+            "documents_affected": response.documents_affected,
+            "document_ids": response.updated_document_ids,
+            "errors": response.errors,
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
+
+
+@app.post("/api/v1/test/documents/update/upsert")
+async def test_upsert_documents(request: UpsertDocumentRequest):
+    """Test UPSERT strategy: Update existing documents or insert new ones."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        # Convert text to DocumentInput with document_ids
+        new_documents = []
+        for i, text in enumerate(request.new_documents_text):
+            doc_metadata = request.metadata.copy() if request.metadata else {}
+            if request.document_ids and i < len(request.document_ids):
+                doc_metadata["document_id"] = request.document_ids[i]
+
+            new_documents.append(
+                DocumentInput.from_text(text=text, metadata=doc_metadata)
+            )
+
+        response = rag_client.update_documents(
+            collection_name=request.collection_name,
+            update_strategy="upsert",
+            new_documents=new_documents,
+            metadata_updates=request.metadata,
+        )
+
+        return JSONResponse(content={
+            "success": response.success,
+            "strategy": "upsert",
+            "chunks_deleted": response.chunks_deleted,
+            "chunks_added": response.chunks_added,
+            "chunks_updated": response.chunks_updated,
+            "documents_affected": response.documents_affected,
+            "document_ids": response.updated_document_ids,
+            "errors": response.errors,
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
+
+
+@app.post("/api/v1/test/documents/update/metadata")
+async def test_update_metadata(request: MetadataUpdateRequest):
+    """Test metadata-only update: Update metadata without reprocessing content."""
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        response = rag_client.update_documents(
+            collection_name=request.collection_name,
+            update_strategy="delete",  # Placeholder, metadata update doesn't need docs
+            filters=request.filters,
+            document_ids=request.document_ids,
+            metadata_updates=request.metadata_updates,
+            reprocess_chunks=False,
+        )
+
+        return JSONResponse(content={
+            "success": response.success,
+            "strategy": "metadata_update",
+            "chunks_updated": response.chunks_updated,
+            "documents_affected": response.documents_affected,
+            "errors": response.errors,
+        })
+
+    except Exception as e:
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
 
 
 # Advanced Retrieval Endpoint (Phase 2 - HyDE + BM25)

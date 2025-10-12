@@ -208,6 +208,27 @@ class MongoDBClient:
         except Exception as e:
             raise VectorDBError(f"Failed to delete chunk from MongoDB: {str(e)}") from e
 
+    def delete_chunks_by_ids(self, chunk_ids: List[str]) -> int:
+        """Delete multiple chunks by chunk_ids.
+
+        Args:
+            chunk_ids: List of chunk identifiers
+
+        Returns:
+            Number of chunks deleted
+        """
+        try:
+            if not chunk_ids:
+                return 0
+
+            result = self.db.document_contents.delete_many({"chunk_id": {"$in": chunk_ids}})
+            return result.deleted_count
+
+        except Exception as e:
+            raise VectorDBError(
+                f"Failed to delete chunks by IDs: {str(e)}"
+            ) from e
+
     def delete_chunks_by_document(self, document_id: str) -> int:
         """Delete all chunks for a document.
 
@@ -224,6 +245,27 @@ class MongoDBClient:
         except Exception as e:
             raise VectorDBError(
                 f"Failed to delete chunks by document: {str(e)}"
+            ) from e
+
+    def delete_chunks_by_document_ids(self, document_ids: List[str]) -> int:
+        """Delete all chunks for multiple documents.
+
+        Args:
+            document_ids: List of document identifiers
+
+        Returns:
+            Number of chunks deleted
+        """
+        try:
+            if not document_ids:
+                return 0
+
+            result = self.db.document_contents.delete_many({"document_id": {"$in": document_ids}})
+            return result.deleted_count
+
+        except Exception as e:
+            raise VectorDBError(
+                f"Failed to delete chunks by document IDs: {str(e)}"
             ) from e
 
     def delete_chunks_by_collection(self, collection_name: str) -> int:

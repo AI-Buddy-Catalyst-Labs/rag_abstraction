@@ -121,3 +121,79 @@ class BaseVectorDB(ABC):
             Dictionary with collection information
         """
         pass
+
+    @abstractmethod
+    def get_document_ids(
+        self,
+        collection_name: str,
+        filters: Optional[Dict[str, Any]] = None,
+        limit: Optional[int] = None,
+    ) -> List[str]:
+        """Get unique document IDs from collection.
+
+        Args:
+            collection_name: Name of the collection
+            filters: Metadata filters to match documents
+            limit: Maximum number of document IDs to return
+
+        Returns:
+            List of unique document IDs
+        """
+        pass
+
+    @abstractmethod
+    def count_chunks(
+        self,
+        collection_name: str,
+        filters: Optional[Dict[str, Any]] = None,
+        document_ids: Optional[List[str]] = None,
+    ) -> int:
+        """Count chunks matching criteria.
+
+        Args:
+            collection_name: Name of the collection
+            filters: Metadata filters
+            document_ids: Specific document IDs to count chunks for
+
+        Returns:
+            Number of chunks matching criteria
+        """
+        pass
+
+    @abstractmethod
+    def get_chunk_ids_by_documents(
+        self,
+        collection_name: str,
+        document_ids: List[str],
+    ) -> List[str]:
+        """Get all chunk IDs belonging to specific documents.
+
+        Args:
+            collection_name: Name of the collection
+            document_ids: List of document IDs
+
+        Returns:
+            List of chunk IDs
+        """
+        pass
+
+    @abstractmethod
+    def update_metadata(
+        self,
+        collection_name: str,
+        filters: Optional[Dict[str, Any]] = None,
+        chunk_ids: Optional[List[str]] = None,
+        metadata_updates: Optional[Dict[str, Any]] = None,
+    ) -> int:
+        """Update metadata for existing chunks without reprocessing content.
+
+        Args:
+            collection_name: Name of the collection
+            filters: Metadata filters to match chunks
+            chunk_ids: Specific chunk IDs to update
+            metadata_updates: Dictionary of metadata fields to update
+
+        Returns:
+            Number of chunks updated
+        """
+        pass
