@@ -9,7 +9,7 @@ from ..chunking.semantic import SemanticChunker
 from ..embedding.openai import OpenAIEmbedder
 from ..exceptions import ConfigurationError, ValidationError, VectorDBError
 from ..models.document import DocumentInput, SourceType
-from ..models.response import AddDocumentsResponse, ProcessingStats
+from ..models.response import AddDocumentsResponse, ProcessingStats, UpdateDocumentsResponse
 from ..mongodb_client import MongoDBClient
 from ..pdf_processing import extract_text_from_pdf
 from ..vectordb.qdrant import QdrantVectorDB
@@ -336,6 +336,399 @@ class RAGClient:
             raise ValidationError(f"Unknown source type: {document.source_type}")
 
         return text, doc_metadata
+
+    def update_documents(
+        self,
+        collection_name: str,
+        update_strategy: str,
+        filters: Optional[Dict[str, Any]] = None,
+        document_ids: Optional[List[str]] = None,
+        new_documents: Optional[List[DocumentInput]] = None,
+        metadata_updates: Optional[Dict[str, Any]] = None,
+        reprocess_chunks: bool = True,
+    ) -> UpdateDocumentsResponse:
+        """Update, replace, or delete existing documents in the knowledge base.
+
+        This method provides flexible document management operations:
+        - replace: Delete existing documents and add new ones
+        - append: Add new documents without deleting
+        - delete: Remove documents matching criteria
+        - upsert: Update if exists, insert if doesn't
+
+        Args:
+            collection_name: Target Qdrant collection
+            update_strategy: Operation type ("replace", "append", "delete", "upsert")
+            filters: Metadata-based selection criteria (e.g., {"user_id": "123"})
+            document_ids: Specific document IDs to target
+            new_documents: Replacement or additional documents (for replace/append/upsert)
+            metadata_updates: Metadata field updates (metadata-only updates)
+            reprocess_chunks: If True, regenerate chunks and embeddings; if False, metadata-only updates
+
+        Returns:
+            UpdateDocumentsResponse with operation results
+
+        Raises:
+            ValidationError: Invalid parameters
+            CollectionNotFoundError: Collection doesn't exist
+            NoDocumentsFoundError: No documents match criteria (for delete/replace)
+            VectorDBError: Qdrant operation failures
+        """
+        from ..exceptions import CollectionNotFoundError, NoDocumentsFoundError
+
+        start_time = time.time()
+        errors = []
+        chunks_deleted = 0
+        chunks_added = 0
+        chunks_updated = 0
+        updated_document_ids = []
+
+        try:
+            # ===================================================================
+            # VALIDATION
+            # ===================================================================
+            # Validate update strategy
+            valid_strategies = ["replace", "append", "delete", "upsert"]
+            if update_strategy not in valid_strategies:
+                raise ValidationError(
+                    f"Invalid update_strategy: '{update_strategy}'. "
+                    f"Must be one of: {', '.join(valid_strategies)}"
+                )
+
+            # Validate collection exists
+            if not self.vectordb.collection_exists(collection_name):
+                raise CollectionNotFoundError(
+                    f"Collection '{collection_name}' does not exist"
+                )
+
+            # Validate strategy-specific requirements
+            if update_strategy in ["replace", "delete"]:
+                if not filters and not document_ids:
+                    raise ValidationError(
+                        f"'{update_strategy}' strategy requires either 'filters' or 'document_ids'"
+                    )
+
+            if update_strategy in ["replace", "append", "upsert"]:
+                if not new_documents:
+                    raise ValidationError(
+                        f"'{update_strategy}' strategy requires 'new_documents'"
+                    )
+
+            if not reprocess_chunks and not metadata_updates:
+                raise ValidationError(
+                    "When reprocess_chunks=False, metadata_updates must be provided"
+                )
+
+            print(f"\n{'='*60}")
+            print(f"UPDATE OPERATION: {update_strategy.upper()}")
+            print(f"{'='*60}")
+            print(f"Collection: {collection_name}")
+            if filters:
+                print(f"Filters: {filters}")
+            if document_ids:
+                print(f"Document IDs: {document_ids}")
+
+            # ===================================================================
+            # STRATEGY EXECUTION
+            # ===================================================================
+
+            if update_strategy == "delete":
+                # DELETE STRATEGY: Remove documents
+                print(f"\nExecuting DELETE strategy...")
+
+                # Get chunk IDs to delete
+                if document_ids:
+                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
+                        collection_name, document_ids
+                    )
+                    updated_document_ids = document_ids
+                else:
+                    # Get document IDs first, then get chunk IDs
+                    doc_ids = self.vectordb.get_document_ids(collection_name, filters)
+                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
+                        collection_name, doc_ids
+                    )
+                    updated_document_ids = doc_ids
+
+                if not chunk_ids_to_delete:
+                    raise NoDocumentsFoundError(
+                        "No documents found matching the specified criteria"
+                    )
+
+                print(f"Found {len(chunk_ids_to_delete)} chunks to delete")
+                print(f"Affecting {len(updated_document_ids)} document(s)")
+
+                # Delete from Qdrant
+                deleted_count = self.vectordb.delete(
+                    collection_name=collection_name,
+                    chunk_ids=chunk_ids_to_delete,
+                )
+                chunks_deleted = deleted_count
+
+                # Delete from MongoDB if enabled
+                if self.mongodb:
+                    mongo_deleted = self.mongodb.delete_chunks_by_ids(chunk_ids_to_delete)
+                    print(f"Deleted {mongo_deleted} chunks from MongoDB")
+
+                    # Also delete document metadata
+                    metadata_deleted = self.mongodb.db.document_metadata.delete_many(
+                        {"document_id": {"$in": updated_document_ids}}
+                    ).deleted_count
+                    print(f"Deleted {metadata_deleted} document metadata records from MongoDB")
+
+                print(f"✓ Deleted {chunks_deleted} chunks")
+
+            elif update_strategy == "append":
+                # APPEND STRATEGY: Just add new documents
+                print(f"\nExecuting APPEND strategy...")
+                print(f"Adding {len(new_documents)} new document(s)...")
+
+                # Use existing add_documents pipeline
+                add_response = self.add_documents(
+                    documents=new_documents,
+                    collection_name=collection_name,
+                    metadata=metadata_updates or {},
+                )
+
+                if not add_response.success:
+                    errors.extend(add_response.errors)
+                    raise VectorDBError(f"Failed to add documents: {add_response.errors}")
+
+                chunks_added = add_response.total_chunks
+                updated_document_ids = [
+                    chunk.metadata.document_id
+                    for chunk in add_response.chunks
+                ]
+                updated_document_ids = list(set(updated_document_ids))  # Unique IDs
+
+                print(f"✓ Added {chunks_added} new chunks from {len(updated_document_ids)} document(s)")
+
+            elif update_strategy == "replace":
+                # REPLACE STRATEGY: Delete existing + add new
+                print(f"\nExecuting REPLACE strategy...")
+
+                # Step 1: Get chunks to delete
+                if document_ids:
+                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
+                        collection_name, document_ids
+                    )
+                    docs_to_replace = document_ids
+                else:
+                    docs_to_replace = self.vectordb.get_document_ids(collection_name, filters)
+                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
+                        collection_name, docs_to_replace
+                    )
+
+                if not chunk_ids_to_delete:
+                    raise NoDocumentsFoundError(
+                        "No documents found matching the specified criteria"
+                    )
+
+                print(f"Found {len(chunk_ids_to_delete)} chunks to replace")
+                print(f"Affecting {len(docs_to_replace)} document(s)")
+
+                # Step 2: Delete existing chunks
+                deleted_count = self.vectordb.delete(
+                    collection_name=collection_name,
+                    chunk_ids=chunk_ids_to_delete,
+                )
+                chunks_deleted = deleted_count
+
+                # Delete from MongoDB if enabled
+                if self.mongodb:
+                    mongo_deleted = self.mongodb.delete_chunks_by_ids(chunk_ids_to_delete)
+                    print(f"Deleted {mongo_deleted} chunks from MongoDB")
+
+                    # Also delete document metadata
+                    metadata_deleted = self.mongodb.db.document_metadata.delete_many(
+                        {"document_id": {"$in": docs_to_replace}}
+                    ).deleted_count
+                    print(f"Deleted {metadata_deleted} document metadata records from MongoDB")
+
+                print(f"✓ Deleted {chunks_deleted} old chunks")
+
+                # Step 3: Add new documents
+                print(f"Adding {len(new_documents)} replacement document(s)...")
+                add_response = self.add_documents(
+                    documents=new_documents,
+                    collection_name=collection_name,
+                    metadata=metadata_updates or {},
+                )
+
+                if not add_response.success:
+                    errors.extend(add_response.errors)
+                    raise VectorDBError(f"Failed to add replacement documents: {add_response.errors}")
+
+                chunks_added = add_response.total_chunks
+                updated_document_ids = [
+                    chunk.metadata.document_id
+                    for chunk in add_response.chunks
+                ]
+                updated_document_ids = list(set(updated_document_ids))
+
+                print(f"✓ Added {chunks_added} new chunks from {len(updated_document_ids)} document(s)")
+
+            elif update_strategy == "upsert":
+                # UPSERT STRATEGY: Update if exists, insert if not
+                print(f"\nExecuting UPSERT strategy...")
+                print(f"Processing {len(new_documents)} document(s) for upsert...")
+
+                docs_to_insert = []
+                docs_to_update = []
+
+                # Check each document to see if it exists
+                for doc in new_documents:
+                    # Extract document_id from metadata
+                    doc_id = doc.metadata.get("document_id")
+                    if not doc_id:
+                        # Generate new ID if not provided
+                        doc_id = str(uuid.uuid4())
+                        doc.metadata["document_id"] = doc_id
+                        docs_to_insert.append(doc)
+                    else:
+                        # Check if document exists
+                        existing_chunks = self.vectordb.count_chunks(
+                            collection_name=collection_name,
+                            document_ids=[doc_id],
+                        )
+                        if existing_chunks > 0:
+                            docs_to_update.append(doc)
+                        else:
+                            docs_to_insert.append(doc)
+
+                print(f"Documents to insert: {len(docs_to_insert)}")
+                print(f"Documents to update: {len(docs_to_update)}")
+
+                # Process updates (replace existing)
+                if docs_to_update:
+                    for doc in docs_to_update:
+                        doc_id = doc.metadata["document_id"]
+                        print(f"  Updating document: {doc_id}")
+
+                        # Delete existing chunks
+                        chunk_ids = self.vectordb.get_chunk_ids_by_documents(
+                            collection_name, [doc_id]
+                        )
+                        if chunk_ids:
+                            deleted = self.vectordb.delete(
+                                collection_name=collection_name,
+                                chunk_ids=chunk_ids,
+                            )
+                            chunks_deleted += deleted
+
+                            if self.mongodb:
+                                self.mongodb.delete_chunks_by_ids(chunk_ids)
+                                # Also delete document metadata
+                                self.mongodb.db.document_metadata.delete_one(
+                                    {"document_id": doc_id}
+                                )
+
+                    # Add updated documents
+                    update_response = self.add_documents(
+                        documents=docs_to_update,
+                        collection_name=collection_name,
+                        metadata=metadata_updates or {},
+                    )
+                    if update_response.success:
+                        chunks_updated += update_response.total_chunks
+                        updated_document_ids.extend([
+                            chunk.metadata.document_id
+                            for chunk in update_response.chunks
+                        ])
+                    else:
+                        errors.extend(update_response.errors)
+
+                # Process inserts (new documents)
+                if docs_to_insert:
+                    insert_response = self.add_documents(
+                        documents=docs_to_insert,
+                        collection_name=collection_name,
+                        metadata=metadata_updates or {},
+                    )
+                    if insert_response.success:
+                        chunks_added += insert_response.total_chunks
+                        updated_document_ids.extend([
+                            chunk.metadata.document_id
+                            for chunk in insert_response.chunks
+                        ])
+                    else:
+                        errors.extend(insert_response.errors)
+
+                updated_document_ids = list(set(updated_document_ids))
+                print(f"✓ Upserted {chunks_updated + chunks_added} chunks total")
+                print(f"  - Updated: {chunks_updated} chunks")
+                print(f"  - Inserted: {chunks_added} chunks")
+
+            # Handle metadata-only updates (when reprocess_chunks=False)
+            if not reprocess_chunks and metadata_updates:
+                print(f"\nPerforming metadata-only update...")
+
+                # Update metadata without reprocessing content
+                if document_ids:
+                    chunk_ids = self.vectordb.get_chunk_ids_by_documents(
+                        collection_name, document_ids
+                    )
+                    updated_count = self.vectordb.update_metadata(
+                        collection_name=collection_name,
+                        chunk_ids=chunk_ids,
+                        metadata_updates=metadata_updates,
+                    )
+                elif filters:
+                    updated_count = self.vectordb.update_metadata(
+                        collection_name=collection_name,
+                        filters=filters,
+                        metadata_updates=metadata_updates,
+                    )
+                else:
+                    updated_count = 0
+
+                chunks_updated = updated_count
+                print(f"✓ Updated metadata for {chunks_updated} chunks")
+
+            # Calculate total time
+            total_time = (time.time() - start_time) * 1000
+
+            # Print summary
+            print(f"\n{'='*60}")
+            print(f"UPDATE COMPLETE")
+            print(f"{'='*60}")
+            print(f"Strategy: {update_strategy}")
+            print(f"Chunks deleted: {chunks_deleted}")
+            print(f"Chunks added: {chunks_added}")
+            print(f"Chunks updated: {chunks_updated}")
+            print(f"Documents affected: {len(updated_document_ids)}")
+            print(f"Total time: {total_time:.2f}ms")
+            print(f"{'='*60}\n")
+
+            return UpdateDocumentsResponse(
+                success=True,
+                strategy_used=update_strategy,
+                documents_affected=len(updated_document_ids),
+                chunks_deleted=chunks_deleted,
+                chunks_added=chunks_added,
+                chunks_updated=chunks_updated,
+                updated_document_ids=updated_document_ids,
+                errors=errors,
+            )
+
+        except (ValidationError, CollectionNotFoundError, NoDocumentsFoundError) as e:
+            # Expected errors - re-raise
+            raise
+
+        except Exception as e:
+            # Unexpected errors
+            errors.append(f"Update operation failed: {str(e)}")
+            print(f"\n✗ Update failed: {e}")
+
+            return UpdateDocumentsResponse(
+                success=False,
+                strategy_used=update_strategy,
+                documents_affected=len(updated_document_ids),
+                chunks_deleted=chunks_deleted,
+                chunks_added=chunks_added,
+                chunks_updated=chunks_updated,
+                updated_document_ids=updated_document_ids,
+                errors=errors,
+            )
 
     def get_collection_info(self, collection_name: str) -> Dict[str, Any]:
         """Get information about a collection.
