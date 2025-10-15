@@ -1084,7 +1084,7 @@ class RAGClient:
                     print(f"   ✓ Fetched content for {mongodb_fetch_count} chunks from MongoDB")
 
             # ===================================================================
-            # STEP 5: RERANKING (Phase 4 - BGE Reranking)
+            # STEP 5: RERANKING (Phase 4 - BGE Reranking with LLM Fallback)
             # ===================================================================
             print(f"\n🎯 Reranking:")
             reranking_start = time.time()
@@ -1138,11 +1138,56 @@ class RAGClient:
                     print(f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}")
 
                 except Exception as e:
-                    print(f"   ⚠️ Warning: Reranking failed: {e}")
-                    print(f"   Falling back to vector score sorting...")
-                    # Fallback to vector score sorting
-                    ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
-                    stats.reranking_time_ms = (time.time() - reranking_start) * 1000
+                    print(f"   ⚠️ Warning: {self.config.reranking.provider.upper()} reranking failed: {e}")
+
+                    # Try LLM fallback if enabled
+                    if self.config.reranking.fallback_enabled and self.config.reranking.fallback_endpoint and self.config.reranking.fallback_api_key:
+                        try:
+                            print(f"   🔄 Attempting LLM fallback using {self.config.reranking.fallback_model}...")
+                            from ..retrieval.reranker import LLMReranker
+
+                            llm_reranker = LLMReranker(
+                                api_key=self.config.reranking.fallback_api_key,
+                                base_url=self.config.reranking.fallback_endpoint,
+                                model=self.config.reranking.fallback_model,
+                                timeout=self.config.reranking.fallback_timeout,
+                            )
+
+                            # Prepare chunks for reranking
+                            chunks_for_reranking = [
+                                (chunk.content, chunk.metadata) for chunk in unique_chunks
+                            ]
+
+                            # Rerank using LLM
+                            reranked_results = llm_reranker.rerank(
+                                query=query,
+                                chunks=chunks_for_reranking,
+                                top_k=min(self.config.reranking.top_k, len(unique_chunks))
+                            )
+
+                            # Apply reranking scores and reorder chunks
+                            ranked_chunks = []
+                            for original_index, rerank_score in reranked_results:
+                                chunk = unique_chunks[original_index]
+                                chunk.score = rerank_score
+                                ranked_chunks.append(chunk)
+
+                            stats.reranking_time_ms = (time.time() - reranking_start) * 1000
+                            print(f"   ✅ LLM fallback successful! Reranked to {len(ranked_chunks)} chunks ({stats.reranking_time_ms:.2f}ms)")
+                            print(f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}")
+
+                        except Exception as fallback_error:
+                            print(f"   ⚠️ Warning: LLM fallback also failed: {fallback_error}")
+                            print(f"   Falling back to vector score sorting...")
+                            # Fallback to vector score sorting
+                            ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+                            stats.reranking_time_ms = (time.time() - reranking_start) * 1000
+                    else:
+                        print(f"   LLM fallback not enabled or not configured")
+                        print(f"   Falling back to vector score sorting...")
+                        # Fallback to vector score sorting
+                        ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+                        stats.reranking_time_ms = (time.time() - reranking_start) * 1000
             else:
                 # Reranking disabled - sort by vector score
                 ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)

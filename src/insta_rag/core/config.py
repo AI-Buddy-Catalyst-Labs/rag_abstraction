@@ -68,6 +68,13 @@ class RerankingConfig:
     normalize: bool = False  # For BGE reranker
     timeout: int = 30  # Request timeout in seconds
 
+    # LLM Fallback Configuration
+    fallback_enabled: bool = False
+    fallback_endpoint: Optional[str] = None
+    fallback_api_key: Optional[str] = None
+    fallback_model: str = "gpt-oss-120b"
+    fallback_timeout: int = 60
+
     def validate(self) -> None:
         """Validate reranking configuration."""
         if self.enabled:
@@ -77,6 +84,12 @@ class RerankingConfig:
                 raise ConfigurationError("BGE reranker API key is required")
             elif self.provider == "bge" and not self.api_url:
                 raise ConfigurationError("BGE reranker API URL is required")
+
+        if self.fallback_enabled:
+            if not self.fallback_endpoint:
+                raise ConfigurationError("LLM fallback endpoint is required when fallback is enabled")
+            if not self.fallback_api_key:
+                raise ConfigurationError("LLM fallback API key is required when fallback is enabled")
 
 
 @dataclass
@@ -268,6 +281,12 @@ class RAGConfig:
         bge_api_key = os.getenv("BGE_RERANKER_API_KEY")
         cohere_api_key = os.getenv("COHERE_API_KEY")
 
+        # LLM fallback settings
+        gpt_oss_endpoint = os.getenv("GPT_OSS_ENDPOINT")
+        gpt_oss_api_key = os.getenv("GPT_OSS_API_KEY")
+        gpt_oss_model = os.getenv("GPT_OSS_MODEL", "gpt-oss-120b")
+        gpt_oss_fallback_enabled = os.getenv("GPT_OSS_FALLBACK_ENABLED", "false").lower() == "true"
+
         if bge_api_key:
             # Use BGE reranker if API key is available
             reranking_config = RerankingConfig(
@@ -277,6 +296,10 @@ class RAGConfig:
                 api_url=os.getenv("BGE_RERANKER_URL", "http://118.67.212.45:8000/rerank"),
                 enabled=True,
                 normalize=False,
+                fallback_enabled=gpt_oss_fallback_enabled,
+                fallback_endpoint=gpt_oss_endpoint,
+                fallback_api_key=gpt_oss_api_key,
+                fallback_model=gpt_oss_model,
             )
         elif cohere_api_key:
             # Fallback to Cohere if available
@@ -285,6 +308,10 @@ class RAGConfig:
                 model="rerank-v3.5",
                 api_key=cohere_api_key,
                 enabled=True,
+                fallback_enabled=gpt_oss_fallback_enabled,
+                fallback_endpoint=gpt_oss_endpoint,
+                fallback_api_key=gpt_oss_api_key,
+                fallback_model=gpt_oss_model,
             )
         else:
             # No reranking available
@@ -292,6 +319,10 @@ class RAGConfig:
                 provider="bge",
                 model="BAAI/bge-reranker-v2-m3",
                 enabled=False,
+                fallback_enabled=gpt_oss_fallback_enabled,
+                fallback_endpoint=gpt_oss_endpoint,
+                fallback_api_key=gpt_oss_api_key,
+                fallback_model=gpt_oss_model,
             )
 
         # MongoDB config
