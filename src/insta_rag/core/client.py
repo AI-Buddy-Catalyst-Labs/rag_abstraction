@@ -1158,6 +1158,8 @@ class RAGClient:
                                 (chunk.content, chunk.metadata) for chunk in unique_chunks
                             ]
 
+                            print(f"   📤 Sending {len(chunks_for_reranking)} chunks to LLM reranker...")
+
                             # Rerank using LLM
                             reranked_results = llm_reranker.rerank(
                                 query=query,
