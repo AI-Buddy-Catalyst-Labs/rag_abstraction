@@ -267,6 +267,13 @@ Return your response as a JSON array:"""
             # Extract the response content
             response_text = response.choices[0].message.content.strip()
 
+            # Print the OSS model response for logging
+            print(f"\n{'='*80}")
+            print(f"OSS MODEL RESPONSE (gpt-oss-120b):")
+            print(f"{'='*80}")
+            print(response_text)
+            print(f"{'='*80}\n")
+
             # Try to find JSON array in the response
             # Sometimes LLM might add extra text, so we look for the JSON array
             start_idx = response_text.find('[')
