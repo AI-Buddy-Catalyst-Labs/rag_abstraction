@@ -10,7 +10,6 @@ from ..embedding.openai import OpenAIEmbedder
 from ..exceptions import ConfigurationError, ValidationError, VectorDBError
 from ..models.document import DocumentInput, SourceType
 from ..models.response import AddDocumentsResponse, ProcessingStats, UpdateDocumentsResponse
-from ..mongodb_client import MongoDBClient
 from ..pdf_processing import extract_text_from_pdf
 from ..vectordb.qdrant import QdrantVectorDB
 from .config import RAGConfig
@@ -63,15 +62,6 @@ class RAGClient:
             https=self.config.vectordb.https,
             verify_ssl=self.config.vectordb.verify_ssl,
         )
-
-        # Initialize MongoDB client (if configured)
-        self.mongodb = None
-        if self.config.mongodb and self.config.mongodb.enabled:
-            self.mongodb = MongoDBClient(
-                connection_string=self.config.mongodb.connection_string,
-                database_name=self.config.mongodb.database_name,
-            )
-            print(f"✓ MongoDB connected: {self.config.mongodb.database_name}")
 
         # Initialize chunker
         self.chunker = SemanticChunker(
@@ -181,8 +171,8 @@ class RAGClient:
 
             stats.embedding_time_ms = (time.time() - embedding_start) * 1000
 
-            # PHASE 6: Content Storage & Vector Storage
-            print(f"Storing content and vectors in collection '{collection_name}'...")
+            # PHASE 6: Vector Storage
+            print(f"Storing vectors and content in collection '{collection_name}'...")
             upload_start = time.time()
 
             # Ensure collection exists
@@ -194,56 +184,11 @@ class RAGClient:
                     distance_metric=self.config.retrieval.distance_metric,
                 )
 
-            # If MongoDB is enabled, store content there and reference in Qdrant
-            if self.mongodb:
-                print("Storing content in MongoDB...")
-
-                # Prepare MongoDB documents
-                mongo_docs = []
-                for chunk in all_chunks:
-                    mongo_docs.append({
-                        "chunk_id": chunk.chunk_id,
-                        "content": chunk.content,
-                        "document_id": chunk.metadata.document_id,
-                        "collection_name": collection_name,
-                        "metadata": chunk.metadata.to_dict(),
-                    })
-
-                # Store in MongoDB batch
-                mongo_ids = self.mongodb.store_chunks_batch(mongo_docs)
-
-                # Prepare Qdrant data with MongoDB references (no content)
-                chunk_ids = [chunk.chunk_id for chunk in all_chunks]
-                vectors = [chunk.embedding for chunk in all_chunks]
-                contents = []  # Empty - content is in MongoDB
-                metadatas = []
-
-                for i, chunk in enumerate(all_chunks):
-                    # Store MongoDB reference in metadata instead of content
-                    meta = chunk.metadata.to_dict()
-                    meta["mongodb_id"] = mongo_ids[i]
-                    meta["content_storage"] = "mongodb"
-                    metadatas.append(meta)
-                    contents.append("")  # Empty content placeholder
-
-                print(f"✓ Stored {len(mongo_ids)} chunks in MongoDB")
-
-                # Store aggregated document metadata
-                for doc_id in set(chunk.metadata.document_id for chunk in all_chunks):
-                    doc_chunks = [c for c in all_chunks if c.metadata.document_id == doc_id]
-                    self.mongodb.store_document_metadata(
-                        document_id=doc_id,
-                        collection_name=collection_name,
-                        total_chunks=len(doc_chunks),
-                        metadata=doc_chunks[0].metadata.to_dict() if doc_chunks else {},
-                    )
-
-            else:
-                # Store content directly in Qdrant (original behavior)
-                chunk_ids = [chunk.chunk_id for chunk in all_chunks]
-                vectors = [chunk.embedding for chunk in all_chunks]
-                contents = [chunk.content for chunk in all_chunks]
-                metadatas = [chunk.metadata.to_dict() for chunk in all_chunks]
+            # Prepare data for Qdrant storage
+            chunk_ids = [chunk.chunk_id for chunk in all_chunks]
+            vectors = [chunk.embedding for chunk in all_chunks]
+            contents = [chunk.content for chunk in all_chunks]
+            metadatas = [chunk.metadata.to_dict() for chunk in all_chunks]
 
             # Upload to Qdrant
             self.vectordb.upsert(
@@ -435,45 +380,25 @@ class RAGClient:
                 # DELETE STRATEGY: Remove documents
                 print(f"\nExecuting DELETE strategy...")
 
-                # Get chunk IDs to delete
+                # Determine document IDs to delete
                 if document_ids:
-                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
-                        collection_name, document_ids
-                    )
                     updated_document_ids = document_ids
                 else:
-                    # Get document IDs first, then get chunk IDs
-                    doc_ids = self.vectordb.get_document_ids(collection_name, filters)
-                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
-                        collection_name, doc_ids
-                    )
-                    updated_document_ids = doc_ids
+                    # Get document IDs using filters
+                    updated_document_ids = self.vectordb.get_document_ids(collection_name, filters)
 
-                if not chunk_ids_to_delete:
+                if not updated_document_ids:
                     raise NoDocumentsFoundError(
                         "No documents found matching the specified criteria"
                     )
 
-                print(f"Found {len(chunk_ids_to_delete)} chunks to delete")
-                print(f"Affecting {len(updated_document_ids)} document(s)")
+                print(f"Deleting chunks for {len(updated_document_ids)} document(s)")
 
-                # Delete from Qdrant
-                deleted_count = self.vectordb.delete(
+                # Delete from Qdrant using filter-based deletion (more efficient)
+                chunks_deleted = self.vectordb.delete_by_document_ids(
                     collection_name=collection_name,
-                    chunk_ids=chunk_ids_to_delete,
+                    document_ids=updated_document_ids,
                 )
-                chunks_deleted = deleted_count
-
-                # Delete from MongoDB if enabled
-                if self.mongodb:
-                    mongo_deleted = self.mongodb.delete_chunks_by_ids(chunk_ids_to_delete)
-                    print(f"Deleted {mongo_deleted} chunks from MongoDB")
-
-                    # Also delete document metadata
-                    metadata_deleted = self.mongodb.db.document_metadata.delete_many(
-                        {"document_id": {"$in": updated_document_ids}}
-                    ).deleted_count
-                    print(f"Deleted {metadata_deleted} document metadata records from MongoDB")
 
                 print(f"✓ Deleted {chunks_deleted} chunks")
 
@@ -506,43 +431,24 @@ class RAGClient:
                 # REPLACE STRATEGY: Delete existing + add new
                 print(f"\nExecuting REPLACE strategy...")
 
-                # Step 1: Get chunks to delete
+                # Step 1: Determine documents to replace
                 if document_ids:
-                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
-                        collection_name, document_ids
-                    )
                     docs_to_replace = document_ids
                 else:
                     docs_to_replace = self.vectordb.get_document_ids(collection_name, filters)
-                    chunk_ids_to_delete = self.vectordb.get_chunk_ids_by_documents(
-                        collection_name, docs_to_replace
-                    )
 
-                if not chunk_ids_to_delete:
+                if not docs_to_replace:
                     raise NoDocumentsFoundError(
                         "No documents found matching the specified criteria"
                     )
 
-                print(f"Found {len(chunk_ids_to_delete)} chunks to replace")
-                print(f"Affecting {len(docs_to_replace)} document(s)")
+                print(f"Replacing {len(docs_to_replace)} document(s)")
 
-                # Step 2: Delete existing chunks
-                deleted_count = self.vectordb.delete(
+                # Step 2: Delete existing chunks using filter-based deletion
+                chunks_deleted = self.vectordb.delete_by_document_ids(
                     collection_name=collection_name,
-                    chunk_ids=chunk_ids_to_delete,
+                    document_ids=docs_to_replace,
                 )
-                chunks_deleted = deleted_count
-
-                # Delete from MongoDB if enabled
-                if self.mongodb:
-                    mongo_deleted = self.mongodb.delete_chunks_by_ids(chunk_ids_to_delete)
-                    print(f"Deleted {mongo_deleted} chunks from MongoDB")
-
-                    # Also delete document metadata
-                    metadata_deleted = self.mongodb.db.document_metadata.delete_many(
-                        {"document_id": {"$in": docs_to_replace}}
-                    ).deleted_count
-                    print(f"Deleted {metadata_deleted} document metadata records from MongoDB")
 
                 print(f"✓ Deleted {chunks_deleted} old chunks")
 
@@ -604,23 +510,12 @@ class RAGClient:
                         doc_id = doc.metadata["document_id"]
                         print(f"  Updating document: {doc_id}")
 
-                        # Delete existing chunks
-                        chunk_ids = self.vectordb.get_chunk_ids_by_documents(
-                            collection_name, [doc_id]
+                        # Delete existing chunks using filter-based deletion
+                        deleted = self.vectordb.delete_by_document_ids(
+                            collection_name=collection_name,
+                            document_ids=[doc_id],
                         )
-                        if chunk_ids:
-                            deleted = self.vectordb.delete(
-                                collection_name=collection_name,
-                                chunk_ids=chunk_ids,
-                            )
-                            chunks_deleted += deleted
-
-                            if self.mongodb:
-                                self.mongodb.delete_chunks_by_ids(chunk_ids)
-                                # Also delete document metadata
-                                self.mongodb.db.document_metadata.delete_one(
-                                    {"document_id": doc_id}
-                                )
+                        chunks_deleted += deleted
 
                     # Add updated documents
                     update_response = self.add_documents(
@@ -792,17 +687,6 @@ class RAGClient:
             )
             stats.vector_search_time_ms = (time.time() - search_start) * 1000
             stats.vector_search_chunks = len(search_results)
-
-            # If MongoDB is enabled, fetch content
-            if self.mongodb:
-                for result in search_results:
-                    if result.metadata.get("content_storage") == "mongodb":
-                        mongodb_id = result.metadata.get("mongodb_id")
-                        if mongodb_id:
-                            # Fetch content from MongoDB
-                            mongo_doc = self.mongodb.get_chunk_content_by_mongo_id(str(mongodb_id))
-                            if mongo_doc:
-                                result.content = mongo_doc.get("content", "")
 
             # Convert to RetrievedChunk objects
             retrieved_chunks = []
@@ -1065,23 +949,6 @@ class RAGClient:
                 print(f"   Deduplication: Disabled")
 
             stats.chunks_after_dedup = len(unique_chunks)
-
-            # Fetch content from MongoDB if enabled
-            mongodb_fetch_count = 0
-            if self.mongodb:
-                for result in unique_chunks:
-                    if result.metadata.get("content_storage") == "mongodb":
-                        mongodb_id = result.metadata.get("mongodb_id")
-                        if mongodb_id:
-                            mongo_doc = self.mongodb.get_chunk_content_by_mongo_id(
-                                str(mongodb_id)
-                            )
-                            if mongo_doc:
-                                result.content = mongo_doc.get("content", "")
-                                mongodb_fetch_count += 1
-
-                if mongodb_fetch_count > 0:
-                    print(f"   ✓ Fetched content for {mongodb_fetch_count} chunks from MongoDB")
 
             # ===================================================================
             # STEP 5: RERANKING (Phase 4 - BGE Reranking with LLM Fallback)

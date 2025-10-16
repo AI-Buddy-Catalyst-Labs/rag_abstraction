@@ -175,26 +175,11 @@ class RetrievalConfig:
 
 
 @dataclass
-class MongoDBConfig:
-    """MongoDB configuration."""
-
-    connection_string: str
-    database_name: str = "Test_Insta_RAG"
-    enabled: bool = True
-
-    def validate(self) -> None:
-        """Validate MongoDB configuration."""
-        if self.enabled and not self.connection_string:
-            raise ConfigurationError("MongoDB connection string is required when enabled")
-
-
-@dataclass
 class RAGConfig:
     """Main RAG system configuration."""
 
     vectordb: VectorDBConfig
     embedding: EmbeddingConfig
-    mongodb: Optional[MongoDBConfig] = None
     reranking: RerankingConfig = field(default_factory=RerankingConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
     chunking: ChunkingConfig = field(default_factory=ChunkingConfig)
@@ -205,8 +190,6 @@ class RAGConfig:
         """Validate all configuration sections."""
         self.vectordb.validate()
         self.embedding.validate()
-        if self.mongodb:
-            self.mongodb.validate()
         self.reranking.validate()
         self.llm.validate()
         self.chunking.validate()
@@ -325,20 +308,9 @@ class RAGConfig:
                 fallback_model=gpt_oss_model,
             )
 
-        # MongoDB config
-        mongo_connection = os.getenv("MONGO_CONNECTION_STRING")
-        mongodb_config = None
-        if mongo_connection:
-            mongodb_config = MongoDBConfig(
-                connection_string=mongo_connection,
-                database_name=os.getenv("MONGO_DATABASE_NAME", "Test_Insta_RAG"),
-                enabled=True,
-            )
-
         config = cls(
             vectordb=vectordb_config,
             embedding=embedding_config,
-            mongodb=mongodb_config,
             reranking=reranking_config,
             llm=llm_config,
         )
@@ -381,11 +353,5 @@ class RAGConfig:
                 "final_top_k": self.retrieval.final_top_k,
             },
         }
-
-        if self.mongodb:
-            config_dict["mongodb"] = {
-                "database_name": self.mongodb.database_name,
-                "enabled": self.mongodb.enabled,
-            }
 
         return config_dict

@@ -350,6 +350,57 @@ class QdrantVectorDB(BaseVectorDB):
         except Exception as e:
             raise VectorDBError(f"Failed to delete vectors: {str(e)}") from e
 
+    def delete_by_document_ids(
+        self,
+        collection_name: str,
+        document_ids: List[str],
+    ) -> int:
+        """Delete all chunks belonging to specific documents using filter-based deletion.
+
+        This is more efficient than getting chunk IDs first and then deleting by IDs.
+
+        Args:
+            collection_name: Name of the collection
+            document_ids: List of document IDs to delete
+
+        Returns:
+            Number of chunks deleted
+        """
+        try:
+            from qdrant_client.models import Filter, FieldCondition, MatchAny
+
+            # Verify collection exists
+            if not self.collection_exists(collection_name):
+                raise CollectionNotFoundError(
+                    f"Collection '{collection_name}' does not exist"
+                )
+
+            if not document_ids:
+                return 0
+
+            # Build filter for document_ids
+            query_filter = Filter(
+                must=[FieldCondition(key="document_id", match=MatchAny(any=document_ids))]
+            )
+
+            # Get count before deletion
+            count_result = self.client.count(
+                collection_name=collection_name, count_filter=query_filter
+            )
+            count = count_result.count
+
+            # Perform deletion using filter
+            self.client.delete(
+                collection_name=collection_name, points_selector=query_filter
+            )
+
+            return count
+
+        except CollectionNotFoundError:
+            raise
+        except Exception as e:
+            raise VectorDBError(f"Failed to delete by document IDs: {str(e)}") from e
+
     def get_collection_info(self, collection_name: str) -> Dict[str, Any]:
         """Get information about a collection.
 
