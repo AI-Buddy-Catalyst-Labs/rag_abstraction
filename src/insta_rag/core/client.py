@@ -328,6 +328,7 @@ class RAGClient:
         chunks_added = 0
         chunks_updated = 0
         updated_document_ids = []
+        all_chunks = []  # NEW: Track chunks for external storage (e.g., MongoDB)
 
         try:
             # ===================================================================
@@ -421,6 +422,7 @@ class RAGClient:
                     raise VectorDBError(f"Failed to add documents: {add_response.errors}")
 
                 chunks_added = add_response.total_chunks
+                all_chunks.extend(add_response.chunks)  # NEW: Store chunks for external storage
                 updated_document_ids = [
                     chunk.metadata.document_id
                     for chunk in add_response.chunks
@@ -467,6 +469,7 @@ class RAGClient:
                     raise VectorDBError(f"Failed to add replacement documents: {add_response.errors}")
 
                 chunks_added = add_response.total_chunks
+                all_chunks.extend(add_response.chunks)  # NEW: Store chunks for external storage
                 updated_document_ids = [
                     chunk.metadata.document_id
                     for chunk in add_response.chunks
@@ -527,6 +530,7 @@ class RAGClient:
                     )
                     if update_response.success:
                         chunks_updated += update_response.total_chunks
+                        all_chunks.extend(update_response.chunks)  # NEW: Store chunks for external storage
                         updated_document_ids.extend([
                             chunk.metadata.document_id
                             for chunk in update_response.chunks
@@ -543,6 +547,7 @@ class RAGClient:
                     )
                     if insert_response.success:
                         chunks_added += insert_response.total_chunks
+                        all_chunks.extend(insert_response.chunks)  # NEW: Store chunks for external storage
                         updated_document_ids.extend([
                             chunk.metadata.document_id
                             for chunk in insert_response.chunks
@@ -604,6 +609,7 @@ class RAGClient:
                 chunks_added=chunks_added,
                 chunks_updated=chunks_updated,
                 updated_document_ids=updated_document_ids,
+                chunks=all_chunks,  # NEW: Include chunks for external storage
                 errors=errors,
             )
 
@@ -624,6 +630,7 @@ class RAGClient:
                 chunks_added=chunks_added,
                 chunks_updated=chunks_updated,
                 updated_document_ids=updated_document_ids,
+                chunks=all_chunks,  # NEW: Include chunks for external storage
                 errors=errors,
             )
 
