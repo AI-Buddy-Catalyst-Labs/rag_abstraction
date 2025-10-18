@@ -163,6 +163,7 @@ class RetrievalConfig:
     final_top_k: int = 20
     distance_metric: str = "cosine"  # cosine, euclidean, dot_product
     score_threshold: Optional[float] = None
+    store_chunk_text_in_qdrant: bool = False  # NEW: Store chunk text in Qdrant (default: store in external DB)
 
     def validate(self) -> None:
         """Validate retrieval configuration."""
@@ -351,6 +352,7 @@ class RAGConfig:
                 "enable_hyde": self.retrieval.enable_hyde,
                 "enable_keyword_search": self.retrieval.enable_keyword_search,
                 "final_top_k": self.retrieval.final_top_k,
+                "store_chunk_text_in_qdrant": self.retrieval.store_chunk_text_in_qdrant,
             },
         }
 
