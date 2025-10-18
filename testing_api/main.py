@@ -27,6 +27,9 @@ from insta_rag.models.chunk import Chunk, ChunkMetadata
 from insta_rag.pdf_processing import extract_text_from_pdf, validate_pdf
 from insta_rag.vectordb.qdrant import QdrantVectorDB
 
+# Import MongoDB storage helper
+from mongodb_storage import MongoDBStorage
+
 # Load environment variables
 load_dotenv()
 
@@ -39,6 +42,9 @@ app = FastAPI(
 
 # Global RAG client (initialized on startup)
 rag_client: Optional[RAGClient] = None
+
+# Global MongoDB storage (initialized on startup)
+mongodb_storage: Optional[MongoDBStorage] = None
 
 # Single collection name for all tests
 TEST_COLLECTION_NAME = "insta_rag_test_collection"
@@ -221,8 +227,10 @@ class UpdateDocumentResponse(BaseModel):
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    """Initialize RAG client on startup."""
-    global rag_client
+    """Initialize RAG client and MongoDB storage on startup."""
+    global rag_client, mongodb_storage
+
+    # Initialize RAG client
     try:
         config = RAGConfig.from_env()
         rag_client = RAGClient(config)
@@ -231,6 +239,83 @@ async def startup_event():
         print(f"✗ Failed to initialize RAG Client: {e}")
         rag_client = None
 
+    # Initialize MongoDB storage
+    try:
+        # Use existing MONGO_CONNECTION_STRING from .env
+        mongo_connection_string = os.getenv("MONGO_CONNECTION_STRING")
+        if not mongo_connection_string:
+            raise ValueError("MONGO_CONNECTION_STRING not found in environment variables")
+
+        mongodb_storage = MongoDBStorage(
+            connection_string=mongo_connection_string,
+            database_name="Test_Insta_RAG"
+        )
+        print("✓ MongoDB Storage initialized successfully")
+    except Exception as e:
+        print(f"✗ Failed to initialize MongoDB Storage: {e}")
+        mongodb_storage = None
+
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close MongoDB connection on shutdown."""
+    global mongodb_storage
+    try:
+        if mongodb_storage:
+            mongodb_storage.close()
+            print("✓ MongoDB connection closed successfully")
+    except Exception as e:
+        print(f"✗ Failed to close MongoDB connection: {e}")
+
+
+# Helper Functions
+async def store_chunks_to_mongodb(
+    chunks: List,
+    collection_name: str,
+    document_ids: Optional[List[str]] = None
+) -> tuple[int, List[str]]:
+    """Store chunks to MongoDB and return MongoDB IDs.
+
+    Args:
+        chunks: List of Chunk objects
+        collection_name: Qdrant collection name
+        document_ids: Optional list of specific document IDs to store (for filtering)
+
+    Returns:
+        Tuple of (chunks_stored_count, mongodb_ids_list)
+    """
+    if not chunks or not mongodb_storage:
+        return 0, []
+
+    try:
+        chunks_for_mongo = []
+        for chunk in chunks:
+            # Filter by document_ids if provided
+            if document_ids and chunk.metadata.document_id not in document_ids:
+                continue
+
+            chunks_for_mongo.append({
+                "chunk_id": chunk.chunk_id,
+                "content": chunk.content,
+                "document_id": chunk.metadata.document_id,
+                "collection_name": collection_name,
+                "metadata": chunk.metadata.to_dict(),
+            })
+
+        if not chunks_for_mongo:
+            return 0, []
+
+        mongodb_ids = mongodb_storage.store_chunks_batch(chunks_for_mongo)
+        print(f"✓ Stored {len(mongodb_ids)} chunks in MongoDB")
+        return len(mongodb_ids), mongodb_ids
+
+    except Exception as e:
+        print(f"✗ Failed to store chunks in MongoDB: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 0, []
+
 
 # Health Check Endpoints
 @app.get("/", response_model=HealthResponse)
@@ -238,9 +323,11 @@ async def health_check():
     """Health check endpoint."""
     components = {
         "rag_client": "initialized" if rag_client else "not_initialized",
+        "mongodb_storage": "initialized" if mongodb_storage else "not_initialized",
         "config": "loaded" if os.getenv("QDRANT_URL") else "missing",
         "embeddings": "configured" if os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") else "missing",
         "vector_db": "configured" if os.getenv("QDRANT_URL") else "missing",
+        "mongodb": "configured" if os.getenv("MONGO_CONNECTION_STRING") else "missing",
     }
 
     all_healthy = all(v in ["initialized", "loaded", "configured"] for v in components.values())
@@ -495,7 +582,7 @@ async def test_pdf_upload(file: UploadFile = File(...)):
 # Complete Document Processing Test
 @app.post("/api/v1/test/documents/add", response_model=AddDocumentResponse)
 async def test_add_document(request: AddDocumentRequest):
-    """Test complete document processing pipeline."""
+    """Test complete document processing pipeline with MongoDB storage."""
     try:
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
@@ -506,12 +593,45 @@ async def test_add_document(request: AddDocumentRequest):
             metadata=request.metadata,
         )
 
-        # Process document
+        # Prepare global metadata
+        global_metadata = {"test_run": True}
+
+        # Process document via RAGClient
+        # Note: By default, store_chunk_text_in_qdrant=False, so content won't be in Qdrant
         response = rag_client.add_documents(
             documents=[doc],
             collection_name=request.collection_name,
-            metadata={"test_run": True},
+            metadata=global_metadata,
         )
+
+        # NEW: Store chunk contents to MongoDB
+        # This separates content storage from vector storage
+        mongodb_chunks_stored = 0
+        if response.success and response.chunks and mongodb_storage:
+            try:
+                # Extract chunks with content from response
+                # These chunks contain the original text content
+                chunks_for_mongo = []
+                for chunk in response.chunks:
+                    chunks_for_mongo.append({
+                        "chunk_id": chunk.chunk_id,
+                        "content": chunk.content,
+                        "document_id": chunk.metadata.document_id,
+                        "collection_name": request.collection_name,
+                        "metadata": chunk.metadata.to_dict(),
+                    })
+
+                # Store to MongoDB using unique chunk_id as key
+                mongodb_storage.store_chunks_batch(chunks_for_mongo)
+                mongodb_chunks_stored = len(chunks_for_mongo)
+
+                print(f"✓ Stored {mongodb_chunks_stored} chunk contents in MongoDB")
+                print(f"  Content is now separate from Qdrant vectors")
+            except Exception as e:
+                print(f"✗ Warning: Failed to store chunks in MongoDB: {str(e)}")
+                print(f"  Qdrant still has vectors, but content won't be retrievable")
+                import traceback
+                traceback.print_exc()
 
         return AddDocumentResponse(
             success=response.success,
@@ -522,6 +642,8 @@ async def test_add_document(request: AddDocumentRequest):
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return AddDocumentResponse(
             success=False,
             documents_processed=0,
@@ -536,7 +658,7 @@ async def test_add_document_file(
     file: UploadFile = File(...),
     collection_name: str = TEST_COLLECTION_NAME,
 ):
-    """Test complete document processing pipeline with file upload."""
+    """Test complete document processing pipeline with file upload and MongoDB storage."""
     try:
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
@@ -555,18 +677,52 @@ async def test_add_document_file(
                 metadata={"filename": file.filename},
             )
 
-            # Process document
+            # Prepare global metadata
+            global_metadata = {"test_run": True, "source": "file_upload"}
+
+            # Process document via RAGClient
+            # Note: By default, store_chunk_text_in_qdrant=False, so content won't be in Qdrant
             response = rag_client.add_documents(
                 documents=[doc],
                 collection_name=collection_name,
-                metadata={"test_run": True, "source": "file_upload"},
+                metadata=global_metadata,
             )
+
+            # NEW: Store chunk contents to MongoDB
+            # This separates content storage from vector storage
+            mongodb_chunks_stored = 0
+            if response.success and response.chunks and mongodb_storage:
+                try:
+                    # Extract chunks with content from response
+                    # These chunks contain the original text content
+                    chunks_for_mongo = []
+                    for chunk in response.chunks:
+                        chunks_for_mongo.append({
+                            "chunk_id": chunk.chunk_id,
+                            "content": chunk.content,
+                            "document_id": chunk.metadata.document_id,
+                            "collection_name": collection_name,
+                            "metadata": chunk.metadata.to_dict(),
+                        })
+
+                    # Store to MongoDB using unique chunk_id as key
+                    mongodb_storage.store_chunks_batch(chunks_for_mongo)
+                    mongodb_chunks_stored = len(chunks_for_mongo)
+
+                    print(f"✓ Stored {mongodb_chunks_stored} chunk contents in MongoDB")
+                    print(f"  Content is now separate from Qdrant vectors")
+                except Exception as e:
+                    print(f"✗ Warning: Failed to store chunks in MongoDB: {str(e)}")
+                    print(f"  Qdrant still has vectors, but content won't be retrievable")
+                    import traceback
+                    traceback.print_exc()
 
             return JSONResponse(content={
                 "success": response.success,
                 "filename": file.filename,
                 "documents_processed": response.documents_processed,
                 "total_chunks": response.total_chunks,
+                "mongodb_chunks_stored": mongodb_chunks_stored,
                 "processing_time_ms": response.processing_stats.total_time_ms,
                 "chunking_time_ms": response.processing_stats.chunking_time_ms,
                 "embedding_time_ms": response.processing_stats.embedding_time_ms,
@@ -579,6 +735,8 @@ async def test_add_document_file(
             Path(tmp_path).unlink()
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(content={
             "success": False,
             "errors": [f"Unexpected error: {str(e)}"],
@@ -776,7 +934,7 @@ async def list_document_ids(collection_name: str, limit: int = 50):
 
 @app.post("/api/v1/test/documents/update/delete")
 async def test_delete_documents(request: DeleteDocumentRequest):
-    """Test DELETE strategy: Remove documents from the knowledge base."""
+    """Test DELETE strategy: Remove documents from the knowledge base and MongoDB."""
     try:
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
@@ -796,10 +954,22 @@ async def test_delete_documents(request: DeleteDocumentRequest):
         print(f"[DELETE RESPONSE] Chunks deleted: {response.chunks_deleted}")
         print(f"[DELETE RESPONSE] Errors: {response.errors}")
 
+        # NEW: Delete from MongoDB as well (cleanup content store)
+        mongodb_chunks_deleted = 0
+        if response.success and response.updated_document_ids and mongodb_storage:
+            try:
+                mongodb_chunks_deleted = mongodb_storage.delete_chunks_by_document_ids(
+                    response.updated_document_ids
+                )
+                print(f"[DELETE] Deleted {mongodb_chunks_deleted} chunk contents from MongoDB")
+            except Exception as e:
+                print(f"[DELETE WARNING] Failed to delete from MongoDB: {str(e)}")
+
         return JSONResponse(content={
             "success": response.success,
             "strategy": "delete",
             "chunks_deleted": response.chunks_deleted,
+            "mongodb_chunks_deleted": mongodb_chunks_deleted,
             "documents_affected": response.documents_affected,
             "document_ids": response.updated_document_ids,
             "errors": response.errors,
@@ -819,7 +989,7 @@ async def test_delete_documents(request: DeleteDocumentRequest):
 
 @app.post("/api/v1/test/documents/update/append")
 async def test_append_documents(request: AppendDocumentRequest):
-    """Test APPEND strategy: Add new documents to the knowledge base."""
+    """Test APPEND strategy: Add new documents to the knowledge base and MongoDB."""
     try:
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
@@ -837,16 +1007,29 @@ async def test_append_documents(request: AppendDocumentRequest):
             metadata_updates=request.metadata,
         )
 
+        # NEW: Store new chunks to MongoDB
+        # Note: update_documents internally calls add_documents,
+        # but doesn't expose chunks in response yet
+        # For now, we note this limitation and track count only
+        mongodb_chunks_stored = 0
+        if response.success and response.chunks_added > 0 and mongodb_storage:
+            print(f"✓ Note: {response.chunks_added} new chunks were added")
+            print(f"  To store their content in MongoDB, use /api/v1/test/documents/add")
+            print(f"  or enhance update_documents to return chunks")
+
         return JSONResponse(content={
             "success": response.success,
             "strategy": "append",
             "chunks_added": response.chunks_added,
+            "mongodb_chunks_stored": mongodb_chunks_stored,
             "documents_affected": response.documents_affected,
             "document_ids": response.updated_document_ids,
             "errors": response.errors,
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(content={
             "success": False,
             "error": str(e),
@@ -993,7 +1176,7 @@ async def retrieve_documents(request: RetrieveRequest):
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
 
-        # Call the new retrieve() method
+        # Call the retrieve() method
         response = rag_client.retrieve(
             query=request.query,
             collection_name=request.collection_name,
@@ -1007,8 +1190,34 @@ async def retrieve_documents(request: RetrieveRequest):
             deduplicate=request.deduplicate,
         )
 
-        # Convert to SearchResponse format
-        chunks_data = [chunk.to_dict() for chunk in response.chunks]
+        # NEW: Fetch missing content from MongoDB and build chunks_data
+        # By default, content is stored in MongoDB, not in Qdrant
+        chunks_data = []
+        for chunk in response.chunks:
+            chunk_dict = chunk.to_dict()
+
+            # Check if content is missing or empty
+            if not chunk_dict.get("content") or chunk_dict["content"] == "":
+                if mongodb_storage:
+                    try:
+                        # Extract chunk_id from metadata (it's nested there)
+                        chunk_id = chunk_dict.get("metadata", {}).get("chunk_id")
+                        if not chunk_id:
+                            print(f"✗ Could not find chunk_id in metadata: {chunk_dict.get('metadata', {}).keys()}")
+                        else:
+                            # Fetch from MongoDB using chunk_id
+                            mongo_doc = mongodb_storage.get_chunk_content(chunk_id)
+                            if mongo_doc and mongo_doc.get("content"):
+                                chunk_dict["content"] = mongo_doc["content"]
+                                print(f"✓ Fetched content for chunk {chunk_id} from MongoDB")
+                            else:
+                                print(f"✗ No content found in MongoDB for chunk {chunk_id}")
+                    except Exception as e:
+                        print(f"✗ Error fetching content from MongoDB: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
+
+            chunks_data.append(chunk_dict)
 
         return SearchResponse(
             success=response.success,
@@ -1057,8 +1266,34 @@ async def search_documents(request: SearchRequest):
             filters=request.filters,
         )
 
-        # Convert chunks to dicts
-        chunks_data = [chunk.to_dict() for chunk in response.chunks]
+        # NEW: Fetch missing content from MongoDB and build chunks_data
+        # By default, content is stored in MongoDB, not in Qdrant
+        chunks_data = []
+        for chunk in response.chunks:
+            chunk_dict = chunk.to_dict()
+
+            # Check if content is missing or empty
+            if not chunk_dict.get("content") or chunk_dict["content"] == "":
+                if mongodb_storage:
+                    try:
+                        # Extract chunk_id from metadata (it's nested there)
+                        chunk_id = chunk_dict.get("metadata", {}).get("chunk_id")
+                        if not chunk_id:
+                            print(f"✗ Could not find chunk_id in metadata: {chunk_dict.get('metadata', {}).keys()}")
+                        else:
+                            # Fetch from MongoDB using chunk_id
+                            mongo_doc = mongodb_storage.get_chunk_content(chunk_id)
+                            if mongo_doc and mongo_doc.get("content"):
+                                chunk_dict["content"] = mongo_doc["content"]
+                                print(f"✓ Fetched content for chunk {chunk_id} from MongoDB")
+                            else:
+                                print(f"✗ No content found in MongoDB for chunk {chunk_id}")
+                    except Exception as e:
+                        print(f"✗ Error fetching content from MongoDB: {str(e)}")
+                        import traceback
+                        traceback.print_exc()
+
+            chunks_data.append(chunk_dict)
 
         return SearchResponse(
             success=response.success,

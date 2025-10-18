@@ -167,6 +167,7 @@ class QdrantVectorDB(BaseVectorDB):
         vectors: List[List[float]],
         contents: List[str],
         metadatas: List[Dict[str, Any]],
+        store_content: bool = False,  # NEW: Flag to control content storage
     ) -> None:
         """Insert or update vectors in collection.
 
@@ -176,6 +177,8 @@ class QdrantVectorDB(BaseVectorDB):
             vectors: List of embedding vectors
             contents: List of chunk contents
             metadatas: List of metadata dictionaries
+            store_content: Whether to store chunk content in Qdrant payload (default: False)
+                          If False, content is managed externally (e.g., in MongoDB)
         """
         try:
             from qdrant_client.models import PointStruct
@@ -191,9 +194,14 @@ class QdrantVectorDB(BaseVectorDB):
             for i, (chunk_id, vector, content, metadata) in enumerate(
                 zip(chunk_ids, vectors, contents, metadatas)
             ):
-                # Combine content, chunk_id, and metadata for payload
+                # Build payload with chunk_id and metadata
                 # IMPORTANT: chunk_id must be in payload for update operations to work
-                payload = {"content": content, "chunk_id": chunk_id, **metadata}
+                payload = {"chunk_id": chunk_id, **metadata}
+
+                # Conditionally add content based on flag
+                # NEW: If store_content is True, include content; otherwise, external storage handles it
+                if store_content:
+                    payload["content"] = content
 
                 # Create point with deterministic UUID from chunk_id
                 point = PointStruct(

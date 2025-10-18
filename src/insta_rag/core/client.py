@@ -191,12 +191,14 @@ class RAGClient:
             metadatas = [chunk.metadata.to_dict() for chunk in all_chunks]
 
             # Upload to Qdrant
+            # NEW: Pass the flag to control whether content is stored in Qdrant
             self.vectordb.upsert(
                 collection_name=collection_name,
                 chunk_ids=chunk_ids,
                 vectors=vectors,
                 contents=contents,
                 metadatas=metadatas,
+                store_content=self.config.retrieval.store_chunk_text_in_qdrant,
             )
 
             stats.upload_time_ms = (time.time() - upload_start) * 1000
