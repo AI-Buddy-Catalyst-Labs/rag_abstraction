@@ -1038,7 +1038,7 @@ async def test_append_documents(request: AppendDocumentRequest):
 
 @app.post("/api/v1/test/documents/update/replace")
 async def test_replace_documents(request: ReplaceDocumentRequest):
-    """Test REPLACE strategy: Replace existing documents with new ones."""
+    """Test REPLACE strategy: Replace existing documents with new ones (with MongoDB support)."""
     try:
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
@@ -1049,6 +1049,26 @@ async def test_replace_documents(request: ReplaceDocumentRequest):
             for text in request.new_documents_text
         ]
 
+        # NEW: Get document_ids to be replaced (for MongoDB cleanup)
+        docs_to_replace = request.document_ids
+        if not docs_to_replace and request.filters:
+            # Get document IDs using filters
+            docs_to_replace = rag_client.vectordb.get_document_ids(
+                request.collection_name, request.filters
+            )
+
+        # NEW: Delete old chunks from MongoDB before replacing
+        mongodb_chunks_deleted = 0
+        if docs_to_replace and mongodb_storage:
+            try:
+                mongodb_chunks_deleted = mongodb_storage.delete_chunks_by_document_ids(
+                    docs_to_replace
+                )
+                print(f"✓ Deleted {mongodb_chunks_deleted} old chunks from MongoDB")
+            except Exception as e:
+                print(f"✗ Warning: Failed to delete old chunks from MongoDB: {str(e)}")
+
+        # Call replace via update_documents
         response = rag_client.update_documents(
             collection_name=request.collection_name,
             update_strategy="replace",
@@ -1058,17 +1078,47 @@ async def test_replace_documents(request: ReplaceDocumentRequest):
             metadata_updates=request.metadata,
         )
 
+        # NEW: Store new chunks to MongoDB (from response.chunks which has full content)
+        mongodb_chunks_stored = 0
+        if response.success and response.chunks and mongodb_storage:
+            try:
+                # Extract chunks with content from response
+                chunks_for_mongo = []
+                for chunk in response.chunks:
+                    chunks_for_mongo.append({
+                        "chunk_id": chunk.chunk_id,
+                        "content": chunk.content,  # ← Full content available!
+                        "document_id": chunk.metadata.document_id,
+                        "collection_name": request.collection_name,
+                        "metadata": chunk.metadata.to_dict(),
+                    })
+
+                # Store to MongoDB
+                if chunks_for_mongo:
+                    mongodb_storage.store_chunks_batch(chunks_for_mongo)
+                    mongodb_chunks_stored = len(chunks_for_mongo)
+                    print(f"✓ Stored {mongodb_chunks_stored} new chunks to MongoDB")
+
+            except Exception as e:
+                print(f"✗ Warning: Failed to store new chunks to MongoDB: {str(e)}")
+                import traceback
+                traceback.print_exc()
+
         return JSONResponse(content={
             "success": response.success,
             "strategy": "replace",
             "chunks_deleted": response.chunks_deleted,
+            "mongodb_chunks_deleted": mongodb_chunks_deleted,
             "chunks_added": response.chunks_added,
+            "mongodb_chunks_stored": mongodb_chunks_stored,
             "documents_affected": response.documents_affected,
             "document_ids": response.updated_document_ids,
             "errors": response.errors,
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(content={
             "success": False,
             "error": str(e),
@@ -1077,7 +1127,7 @@ async def test_replace_documents(request: ReplaceDocumentRequest):
 
 @app.post("/api/v1/test/documents/update/upsert")
 async def test_upsert_documents(request: UpsertDocumentRequest):
-    """Test UPSERT strategy: Update existing documents or insert new ones."""
+    """Test UPSERT strategy: Update existing documents or insert new ones (with MongoDB support)."""
     try:
         if not rag_client:
             raise HTTPException(status_code=503, detail="RAG client not initialized")
@@ -1100,11 +1150,61 @@ async def test_upsert_documents(request: UpsertDocumentRequest):
             metadata_updates=request.metadata,
         )
 
+        # NEW: Handle MongoDB operations for updated/deleted chunks
+        mongodb_chunks_deleted = 0
+        mongodb_chunks_stored = 0
+
+        if response.success and mongodb_storage:
+            # Delete old chunks from MongoDB (for documents that were updated)
+            if response.chunks_deleted > 0:
+                try:
+                    # Get list of updated document_ids (documents that had chunks deleted)
+                    updated_doc_ids = []
+                    for new_doc in new_documents:
+                        doc_id = new_doc.metadata.get("document_id")
+                        if doc_id:
+                            updated_doc_ids.append(doc_id)
+
+                    if updated_doc_ids:
+                        mongodb_chunks_deleted = mongodb_storage.delete_chunks_by_document_ids(
+                            updated_doc_ids
+                        )
+                        print(f"✓ Deleted {mongodb_chunks_deleted} old chunks from MongoDB")
+                except Exception as e:
+                    print(f"✗ Warning: Failed to delete old chunks from MongoDB: {str(e)}")
+
+            # NEW: Store new chunks to MongoDB (from response.chunks which has full content)
+            if response.chunks and mongodb_storage:
+                try:
+                    # Extract chunks with content from response
+                    chunks_for_mongo = []
+                    for chunk in response.chunks:
+                        chunks_for_mongo.append({
+                            "chunk_id": chunk.chunk_id,
+                            "content": chunk.content,  # ← Full content available!
+                            "document_id": chunk.metadata.document_id,
+                            "collection_name": request.collection_name,
+                            "metadata": chunk.metadata.to_dict(),
+                        })
+
+                    # Store to MongoDB
+                    if chunks_for_mongo:
+                        mongodb_storage.store_chunks_batch(chunks_for_mongo)
+                        mongodb_chunks_stored = len(chunks_for_mongo)
+                        print(f"✓ Stored {mongodb_chunks_stored} chunks to MongoDB")
+
+                except Exception as e:
+                    print(f"✗ Warning: Failed to store chunks to MongoDB: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+
         return JSONResponse(content={
             "success": response.success,
             "strategy": "upsert",
             "chunks_deleted": response.chunks_deleted,
+            "mongodb_chunks_deleted": mongodb_chunks_deleted,
             "chunks_added": response.chunks_added,
+            "mongodb_chunks_stored": mongodb_chunks_stored,
             "chunks_updated": response.chunks_updated,
             "documents_affected": response.documents_affected,
             "document_ids": response.updated_document_ids,
@@ -1112,6 +1212,8 @@ async def test_upsert_documents(request: UpsertDocumentRequest):
         })
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(content={
             "success": False,
             "error": str(e),
