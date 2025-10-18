@@ -101,13 +101,37 @@ class EmbeddingResponse(BaseModel):
 
 
 class AddDocumentRequest(BaseModel):
-    """Request for adding documents."""
+    """Request for adding documents with optional custom metadata.
 
-    text: Optional[str] = Field(None, description="Text content")
-    collection_name: str = Field(
-        TEST_COLLECTION_NAME, description="Collection name (uses test collection by default)"
+    Custom metadata is completely flexible - add any fields you want!
+    Examples:
+    - {"department": "Engineering", "team": "Backend"}
+    - {"user_id": "user-123", "access_level": "public"}
+    - {"source_system": "Jira", "ticket_id": "PROJ-1234"}
+    """
+
+    text: Optional[str] = Field(
+        None,
+        description="Text content",
+        example="REST API best practices and design patterns for building scalable systems"
     )
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata")
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME,
+        description="Collection name (uses test collection by default)",
+        example="company_docs"
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional custom metadata for filtering. Can be ANY fields you want!",
+        example={
+            "department": "Engineering",
+            "team": "Backend",
+            "author": "john@example.com",
+            "priority": "high",
+            "confidentiality": "internal",
+            "created_date": "2025-10-18"
+        }
+    )
 
 
 class AddDocumentResponse(BaseModel):
@@ -848,6 +872,132 @@ class MetadataUpdateRequest(BaseModel):
     document_ids: Optional[List[str]] = Field(None, description="Document IDs to update")
 
 
+# ============================================================================
+# NEW: Custom Metadata Filtering Request Models
+# ============================================================================
+
+class FilteredSearchRequest(BaseModel):
+    """Request for searching with custom metadata filtering.
+
+    Performs SEMANTIC SEARCH within documents matching your metadata criteria.
+
+    Filter syntax supports:
+    - Exact match: {"field": "value"}
+    - Multiple values (OR): {"field": ["value1", "value2"]}
+    - Range queries: {"field": {"$gt": 5}} (greater than)
+    - Multiple conditions: {"dept": "Eng", "priority": "high"}
+
+    Example use cases:
+    1. Search in Engineering docs only
+    2. Search for user's private documents
+    3. Search in high-priority items from specific department
+    4. Search across multiple teams
+    """
+
+    query: str = Field(
+        ...,
+        description="Semantic search query",
+        example="API design patterns and best practices"
+    )
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME,
+        description="Collection to search in",
+        example="company_docs"
+    )
+    filters: Dict[str, Any] = Field(
+        ...,
+        description="Custom metadata filters (REQUIRED). Will search ONLY within matching documents.",
+        example={
+            "department": "Engineering",
+            "priority": "high"
+        }
+    )
+    top_k: int = Field(
+        20,
+        description="Number of results to return",
+        ge=1,
+        le=100,
+        example=10
+    )
+    enable_reranking: bool = Field(
+        True,
+        description="Use BGE reranking for better relevance",
+        example=True
+    )
+
+
+class MetadataListRequest(BaseModel):
+    """Request to list documents by custom metadata filters.
+
+    Returns ALL chunks matching the metadata criteria WITHOUT semantic search.
+    Use when you want all documents matching certain criteria (no relevance ranking).
+
+    Perfect for:
+    - Getting all documents from a specific user
+    - Listing all documents from a department
+    - Finding all documents with a certain tag
+    - Bulk export based on criteria
+
+    Examples of filters:
+    - Get specific user: {"user_id": "user-123"}
+    - Get department: {"department": "Engineering"}
+    - Get multiple conditions: {"department": "Finance", "priority": "high"}
+    """
+
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME,
+        description="Collection to query",
+        example="company_docs"
+    )
+    filters: Dict[str, Any] = Field(
+        ...,
+        description="Custom metadata filters (REQUIRED). Returns ALL chunks matching these criteria.",
+        example={
+            "user_id": "user-123",
+            "access_level": "public"
+        }
+    )
+    limit: int = Field(
+        100,
+        description="Maximum chunks to return",
+        ge=1,
+        le=1000,
+        example=50
+    )
+
+
+class MetadataCountRequest(BaseModel):
+    """Request to count documents matching custom metadata filters.
+
+    Returns the COUNT of matching documents without retrieving them.
+    Useful for validation and analytics.
+
+    Use cases:
+    - Check how many documents user has access to
+    - Validate data before batch operations
+    - Analytics: How many high-priority items?
+    - Quota checking: How many docs in department?
+
+    Example filters:
+    - Count by department: {"department": "Engineering"}
+    - Count by user: {"user_id": "user-123"}
+    - Count with conditions: {"department": "Eng", "priority": "high"}
+    """
+
+    collection_name: str = Field(
+        TEST_COLLECTION_NAME,
+        description="Collection to query",
+        example="company_docs"
+    )
+    filters: Dict[str, Any] = Field(
+        ...,
+        description="Custom metadata filters (REQUIRED). Counts all chunks matching these criteria.",
+        example={
+            "department": "Engineering"
+        }
+    )
+
+
 @app.delete("/api/v1/test/collections/{collection_name}/clear")
 async def clear_collection(collection_name: str):
     """Clear all data from a collection (Qdrant + MongoDB)."""
@@ -1467,6 +1617,547 @@ async def get_collection_sample(
             "success": False,
             "error": str(e),
         }, status_code=404)
+
+
+# ============================================================================
+# NEW: Custom Metadata Filtering Endpoints
+# ============================================================================
+
+@app.post("/api/v1/documents/filter/search", response_model=SearchResponse)
+async def filter_search_documents(request: FilteredSearchRequest):
+    """Search with custom metadata filtering.
+
+    Performs SEMANTIC SEARCH WITHIN documents matching your metadata criteria.
+    Combines metadata filtering + semantic relevance ranking.
+
+    ============================================================================
+    EXAMPLE 1: Search in Engineering dept for API patterns
+    ============================================================================
+    POST /api/v1/documents/filter/search
+    {
+      "query": "REST API design patterns",
+      "collection_name": "company_docs",
+      "filters": {
+        "department": "Engineering",
+        "priority": "high"
+      },
+      "top_k": 10,
+      "enable_reranking": true
+    }
+
+    Response will contain chunks matching:
+    - Only from Engineering department
+    - Only high-priority documents
+    - Semantically similar to "REST API design patterns"
+    - Ranked by relevance
+
+    ============================================================================
+    EXAMPLE 2: Search for specific user's documents
+    ============================================================================
+    POST /api/v1/documents/filter/search
+    {
+      "query": "authentication methods",
+      "collection_name": "company_docs",
+      "filters": {
+        "user_id": "user-123",
+        "access_level": "public"
+      },
+      "top_k": 5
+    }
+
+    Response will contain chunks matching:
+    - Only user-123's documents
+    - Only public access level
+    - Semantically similar to "authentication methods"
+
+    ============================================================================
+    EXAMPLE 3: Search across multiple teams
+    ============================================================================
+    POST /api/v1/documents/filter/search
+    {
+      "query": "database optimization",
+      "collection_name": "company_docs",
+      "filters": {
+        "team": ["Backend", "DataEngineering", "DevOps"],
+        "priority": {"$gte": 2}
+      },
+      "top_k": 15
+    }
+
+    Response will contain chunks matching:
+    - From Backend OR DataEngineering OR DevOps teams
+    - Priority >= 2
+    - Semantically similar to "database optimization"
+
+    ============================================================================
+    FILTER SYNTAX GUIDE
+    ============================================================================
+    1. Simple match: {"field": "value"}
+    2. Multiple values (OR): {"field": ["val1", "val2"]}
+    3. Range queries: {"field": {"$gt": 5}} (gt, gte, lt, lte)
+    4. Multiple fields (AND): {"field1": "val1", "field2": "val2"}
+    5. Combined: {"team": ["A", "B"], "priority": {"$gte": 1}}
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        print(f"\n[FILTERED SEARCH]")
+        print(f"Query: {request.query}")
+        print(f"Filters: {request.filters}")
+        print(f"Collection: {request.collection_name}")
+
+        # Perform search with filters
+        if request.enable_reranking:
+            response = rag_client.retrieve(
+                query=request.query,
+                collection_name=request.collection_name,
+                filters=request.filters,
+                top_k=request.top_k,
+                enable_reranking=True,
+            )
+        else:
+            response = rag_client.search(
+                query=request.query,
+                collection_name=request.collection_name,
+                filters=request.filters,
+                top_k=request.top_k,
+            )
+
+        # Fetch missing content from MongoDB
+        chunks_data = []
+        for chunk in response.chunks:
+            chunk_dict = chunk.to_dict()
+
+            if not chunk_dict.get("content") or chunk_dict["content"] == "":
+                if mongodb_storage:
+                    try:
+                        chunk_id = chunk_dict.get("metadata", {}).get("chunk_id")
+                        if chunk_id:
+                            mongo_doc = mongodb_storage.get_chunk_content(chunk_id)
+                            if mongo_doc and mongo_doc.get("content"):
+                                chunk_dict["content"] = mongo_doc["content"]
+                    except Exception as e:
+                        print(f"Warning: Could not fetch content from MongoDB: {str(e)}")
+
+            chunks_data.append(chunk_dict)
+
+        return SearchResponse(
+            success=response.success,
+            query=response.query_original,
+            chunks_count=len(response.chunks),
+            retrieval_time_ms=response.retrieval_stats.total_time_ms,
+            chunks=chunks_data,
+            sources=[source.to_dict() for source in response.sources],
+            stats=response.retrieval_stats.to_dict(),
+            errors=response.errors,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return SearchResponse(
+            success=False,
+            query=request.query,
+            chunks_count=0,
+            retrieval_time_ms=0,
+            chunks=[],
+            stats={},
+            errors=[f"Filter search error: {str(e)}"],
+        )
+
+
+@app.post("/api/v1/documents/filter/list", response_model=SearchResponse)
+async def filter_list_documents(request: MetadataListRequest):
+    """List ALL documents matching custom metadata filters (NO semantic search).
+
+    Returns ALL chunks matching your criteria without semantic ranking.
+    Perfect for bulk retrieval, exports, and metadata-based queries.
+
+    ============================================================================
+    EXAMPLE 1: Get all documents from specific user
+    ============================================================================
+    POST /api/v1/documents/filter/list
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "user_id": "user-123"
+      },
+      "limit": 100
+    }
+
+    Returns ALL chunks created by user-123 (no semantic ranking)
+
+    ============================================================================
+    EXAMPLE 2: Get all high-priority documents from department
+    ============================================================================
+    POST /api/v1/documents/filter/list
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "department": "Finance",
+        "priority": "high"
+      },
+      "limit": 200
+    }
+
+    Returns ALL chunks where:
+    - department = Finance AND priority = high
+    - In insertion order (not ranked)
+
+    ============================================================================
+    EXAMPLE 3: Get documents from multiple sources
+    ============================================================================
+    POST /api/v1/documents/filter/list
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "source_system": ["Jira", "GitHub", "Confluence"]
+      },
+      "limit": 500
+    }
+
+    Returns ALL chunks from:
+    - Jira OR GitHub OR Confluence
+    - All chunks combined
+
+    ============================================================================
+    EXAMPLE 4: Bulk export - all public documents
+    ============================================================================
+    POST /api/v1/documents/filter/list
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "confidentiality": "public",
+        "status": "published"
+      },
+      "limit": 10000
+    }
+
+    Returns ALL chunks for bulk export/archival
+
+    ============================================================================
+    USE CASES
+    ============================================================================
+    1. Export all documents for a user
+    2. Bulk retrieve for backup/migration
+    3. Get all documents from a team/department
+    4. List all documents with specific tag
+    5. Analytics: count documents by category
+    6. Audit: retrieve all documents by author
+
+    ============================================================================
+    DIFFERENCE FROM /filter/search
+    ============================================================================
+    /filter/search:  Combines metadata filters + semantic search + ranking
+    /filter/list:    Returns ALL matching metadata (no semantic search)
+
+    Use /filter/search when: You want relevant results
+    Use /filter/list when:   You want ALL results matching criteria
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        print(f"\n[FILTER LIST]")
+        print(f"Filters: {request.filters}")
+        print(f"Collection: {request.collection_name}")
+
+        # Use a dummy search query to get filtered results
+        # We'll limit based on filters only
+        response = rag_client.search(
+            query="*",  # Dummy query
+            collection_name=request.collection_name,
+            filters=request.filters,
+            top_k=request.limit,
+        )
+
+        # Fetch missing content from MongoDB
+        chunks_data = []
+        for chunk in response.chunks:
+            chunk_dict = chunk.to_dict()
+
+            if not chunk_dict.get("content") or chunk_dict["content"] == "":
+                if mongodb_storage:
+                    try:
+                        chunk_id = chunk_dict.get("metadata", {}).get("chunk_id")
+                        if chunk_id:
+                            mongo_doc = mongodb_storage.get_chunk_content(chunk_id)
+                            if mongo_doc and mongo_doc.get("content"):
+                                chunk_dict["content"] = mongo_doc["content"]
+                    except Exception as e:
+                        print(f"Warning: Could not fetch content from MongoDB: {str(e)}")
+
+            chunks_data.append(chunk_dict)
+
+        return SearchResponse(
+            success=response.success,
+            query="[metadata filter - no semantic search]",
+            chunks_count=len(chunks_data),
+            retrieval_time_ms=response.retrieval_stats.total_time_ms,
+            chunks=chunks_data,
+            sources=[source.to_dict() for source in response.sources],
+            stats=response.retrieval_stats.to_dict(),
+            errors=response.errors,
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return SearchResponse(
+            success=False,
+            query="[metadata filter]",
+            chunks_count=0,
+            retrieval_time_ms=0,
+            chunks=[],
+            stats={},
+            errors=[f"Filter list error: {str(e)}"],
+        )
+
+
+@app.post("/api/v1/documents/filter/count")
+async def filter_count_documents(request: MetadataCountRequest):
+    """Count documents matching custom metadata filters (fast count).
+
+    Returns just the COUNT without retrieving actual documents.
+    Useful for validation, analytics, and quota checking.
+
+    ============================================================================
+    EXAMPLE 1: Count documents by department
+    ============================================================================
+    POST /api/v1/documents/filter/count
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "department": "Engineering"
+      }
+    }
+
+    Response:
+    {
+      "success": true,
+      "collection_name": "company_docs",
+      "filters": {"department": "Engineering"},
+      "count": 47,
+      "chunks_found": 47
+    }
+
+    ============================================================================
+    EXAMPLE 2: Count documents per user
+    ============================================================================
+    POST /api/v1/documents/filter/count
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "user_id": "user-123"
+      }
+    }
+
+    Returns count of all chunks user-123 can access
+
+    ============================================================================
+    EXAMPLE 3: Count high-priority items
+    ============================================================================
+    POST /api/v1/documents/filter/count
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "department": "Finance",
+        "priority": {"$gte": 3}
+      }
+    }
+
+    Returns count of Finance docs with priority >= 3
+
+    ============================================================================
+    EXAMPLE 4: Count by multiple sources (quota check)
+    ============================================================================
+    POST /api/v1/documents/filter/count
+    {
+      "collection_name": "company_docs",
+      "filters": {
+        "source_system": ["Jira", "GitHub", "Confluence"]
+      }
+    }
+
+    Returns total count from all three sources
+
+    ============================================================================
+    USE CASES
+    ============================================================================
+    1. Check quota: How many docs does user have?
+    2. Validation: Is data loaded? (count > 0?)
+    3. Analytics: How many high-priority items?
+    4. Monitoring: Track document growth over time
+    5. Planning: How many docs need migration?
+    6. Audit: How many documents per department?
+
+    ============================================================================
+    WHY USE COUNT?
+    ============================================================================
+    - Much FASTER than /filter/list (no data retrieval)
+    - Perfect for quick checks and validation
+    - Lightweight for analytics queries
+    - Use when you just need the number, not the data
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        print(f"\n[FILTER COUNT]")
+        print(f"Filters: {request.filters}")
+        print(f"Collection: {request.collection_name}")
+
+        # Count documents using Qdrant filter
+        response = rag_client.search(
+            query="*",
+            collection_name=request.collection_name,
+            filters=request.filters,
+            top_k=10000,  # Get all matching
+        )
+
+        count = len(response.chunks)
+
+        return JSONResponse(content={
+            "success": True,
+            "collection_name": request.collection_name,
+            "filters": request.filters,
+            "count": count,
+            "chunks_found": count,
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+            "count": 0,
+        }, status_code=400)
+
+
+@app.get("/api/v1/documents/{collection_name}/metadata/info")
+async def get_collection_metadata_info(collection_name: str):
+    """Get metadata schema and samples from a collection.
+
+    IMPORTANT: Use this endpoint FIRST to discover what metadata fields exist
+    in your collection before using filter endpoints!
+
+    Returns:
+    - Total document count in collection
+    - List of all metadata field names available
+    - Sample metadata from first few documents
+    - Helps you understand what to filter on
+
+    ============================================================================
+    EXAMPLE: Discover metadata schema
+    ============================================================================
+    GET /api/v1/documents/company_docs/metadata/info
+
+    Response:
+    {
+      "success": true,
+      "collection_name": "company_docs",
+      "total_vectors": 1250,
+      "sample_count": 3,
+      "metadata_fields": [
+        "author",
+        "confidentiality",
+        "created_date",
+        "department",
+        "document_id",
+        "priority",
+        "source_system",
+        "team",
+        "user_id"
+      ],
+      "sample_metadata": [
+        {
+          "author": "john@example.com",
+          "department": "Engineering",
+          "team": "Backend",
+          "priority": "high",
+          "confidentiality": "internal",
+          "source_system": "GitHub",
+          "user_id": "user-123"
+        },
+        {
+          "author": "jane@example.com",
+          "department": "Finance",
+          "team": "Analytics",
+          "priority": "medium",
+          "confidentiality": "public",
+          "source_system": "Jira",
+          "user_id": "user-456"
+        },
+        ...
+      ]
+    }
+
+    ============================================================================
+    WORKFLOW
+    ============================================================================
+    1. Call GET /metadata/info to see available fields
+    2. Identify fields you want to filter on
+    3. Use POST /filter/search, /filter/list, or /filter/count
+       with the fields you discovered
+
+    ============================================================================
+    QUICK START
+    ============================================================================
+    # Step 1: Discover fields
+    curl http://localhost:8000/api/v1/documents/company_docs/metadata/info
+
+    # Step 2: See metadata_fields in response (e.g., "department", "user_id")
+
+    # Step 3: Use those fields in filter operations
+    curl -X POST http://localhost:8000/api/v1/documents/filter/search \\
+      -H "Content-Type: application/json" \\
+      -d '{"query":"...", "filters": {"department": "Engineering"}}'
+    """
+    try:
+        if not rag_client:
+            raise HTTPException(status_code=503, detail="RAG client not initialized")
+
+        print(f"\n[METADATA INFO]")
+        print(f"Collection: {collection_name}")
+
+        # Get collection info
+        info = rag_client.get_collection_info(collection_name)
+
+        # Get sample chunks to inspect metadata
+        response = rag_client.search(
+            query="*",
+            collection_name=collection_name,
+            top_k=5,  # Get first 5
+        )
+
+        # Extract metadata samples
+        metadata_samples = []
+        metadata_keys = set()
+
+        for chunk in response.chunks:
+            chunk_dict = chunk.to_dict()
+            if chunk_dict.get("metadata"):
+                metadata_samples.append(chunk_dict["metadata"])
+                metadata_keys.update(chunk_dict["metadata"].keys())
+
+        return JSONResponse(content={
+            "success": True,
+            "collection_name": collection_name,
+            "total_vectors": info["vectors_count"],
+            "sample_count": len(metadata_samples),
+            "metadata_fields": sorted(list(metadata_keys)),
+            "sample_metadata": metadata_samples[:3],  # Show first 3 samples
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(content={
+            "success": False,
+            "error": str(e),
+        }, status_code=400)
 
 
 # Integration Test Endpoint
