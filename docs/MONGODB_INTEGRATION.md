@@ -7,11 +7,13 @@ The insta_rag library now supports MongoDB integration for efficient content sto
 ## Architecture
 
 ### Without MongoDB (Default)
+
 ```
 Document → Chunking → Embedding → Qdrant (vectors + full content)
 ```
 
 ### With MongoDB (New)
+
 ```
 Document → Chunking → Embedding → MongoDB (full content)
                                 → Qdrant (vectors + MongoDB reference)
@@ -20,10 +22,10 @@ Document → Chunking → Embedding → MongoDB (full content)
 ## Benefits
 
 1. **Reduced Qdrant Storage**: Only vectors and metadata in Qdrant
-2. **Centralized Content**: All content in MongoDB for easy management
-3. **Easy Updates**: Update content without re-embedding
-4. **Better Separation**: Vectors and content stored separately
-5. **Cost Effective**: Cheaper storage for large text content
+1. **Centralized Content**: All content in MongoDB for easy management
+1. **Easy Updates**: Update content without re-embedding
+1. **Better Separation**: Vectors and content stored separately
+1. **Cost Effective**: Cheaper storage for large text content
 
 ## Setup
 
@@ -46,6 +48,7 @@ pip install pymongo>=4.6.0
 ```
 
 Or update from requirements:
+
 ```bash
 pip install -r requirements-rag.txt
 ```
@@ -77,10 +80,7 @@ from insta_rag import DocumentInput
 
 doc = DocumentInput.from_text("Your document content here")
 
-response = client.add_documents(
-    documents=[doc],
-    collection_name="my_collection"
-)
+response = client.add_documents(documents=[doc], collection_name="my_collection")
 
 # Content is now in MongoDB, reference in Qdrant
 print(f"Processed {response.total_chunks} chunks")
@@ -100,6 +100,7 @@ if client.mongodb:
 ## MongoDB Collections
 
 ### document_contents
+
 Stores actual chunk content:
 
 ```json
@@ -120,6 +121,7 @@ Stores actual chunk content:
 ```
 
 ### document_metadata
+
 Stores aggregated document information:
 
 ```json
@@ -143,7 +145,7 @@ mongo_id = client.mongodb.store_chunk_content(
     content="Full text content",
     document_id="doc_123",
     collection_name="my_collection",
-    metadata={"key": "value"}
+    metadata={"key": "value"},
 )
 ```
 
@@ -246,8 +248,8 @@ Testing MongoDB Integration
 If you have existing data in Qdrant:
 
 1. Existing collections continue to work (content in Qdrant)
-2. New documents will use MongoDB storage
-3. To migrate existing data, re-process documents with MongoDB enabled
+1. New documents will use MongoDB storage
+1. To migrate existing data, re-process documents with MongoDB enabled
 
 ### Disabling MongoDB
 
@@ -268,7 +270,7 @@ config.mongodb = None
 ```python
 if client.mongodb:
     try:
-        client.mongodb.client.admin.command('ping')
+        client.mongodb.client.admin.command("ping")
         print("MongoDB connected")
     except Exception as e:
         print(f"MongoDB error: {e}")
@@ -288,9 +290,9 @@ mongosh "$MONGO_CONNECTION_STRING"
 ## Performance Considerations
 
 1. **Batch Operations**: Use `store_chunks_batch()` for multiple chunks
-2. **Indexing**: Indexes are automatically created on `chunk_id`, `document_id`, and `collection_name`
-3. **Connection Pooling**: MongoDB client uses connection pooling automatically
-4. **Network Latency**: Consider co-locating MongoDB and Qdrant for best performance
+1. **Indexing**: Indexes are automatically created on `chunk_id`, `document_id`, and `collection_name`
+1. **Connection Pooling**: MongoDB client uses connection pooling automatically
+1. **Network Latency**: Consider co-locating MongoDB and Qdrant for best performance
 
 ## Troubleshooting
 
@@ -322,9 +324,9 @@ MongoDB collections are created automatically on first insert.
 ### Swagger UI
 
 1. Start API: `cd testing_api && ./run.sh`
-2. Open: http://localhost:8000/docs
-3. Test endpoint: `POST /api/v1/test/documents/add`
-4. Check response includes MongoDB storage confirmation
+1. Open: http://localhost:8000/docs
+1. Test endpoint: `POST /api/v1/test/documents/add`
+1. Check response includes MongoDB storage confirmation
 
 ### cURL Test
 
@@ -340,10 +342,10 @@ curl -X POST http://localhost:8000/api/v1/test/documents/add \
 ## Best Practices
 
 1. **Always use MongoDB for production**: Better scalability and management
-2. **Regular backups**: Backup MongoDB collections regularly
-3. **Monitor storage**: Use `get_collection_stats()` to track growth
-4. **Clean up**: Delete old collections when no longer needed
-5. **Indexing**: Add custom indexes for your query patterns
+1. **Regular backups**: Backup MongoDB collections regularly
+1. **Monitor storage**: Use `get_collection_stats()` to track growth
+1. **Clean up**: Delete old collections when no longer needed
+1. **Indexing**: Add custom indexes for your query patterns
 
 ## Future Enhancements
 

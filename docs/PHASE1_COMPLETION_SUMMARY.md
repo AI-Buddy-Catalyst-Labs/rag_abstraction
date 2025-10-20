@@ -2,14 +2,16 @@
 
 ## ✅ Status: COMPLETE & WORKING
 
----
+______________________________________________________________________
 
 ## 🎯 What Was Implemented
 
 ### 1. **Core `retrieve()` Method**
+
 **Location**: `src/insta_rag/core/client.py:466-675`
 
 **Features**:
+
 - ✅ Dual vector search (query searched twice)
 - ✅ Deduplication logic (removes duplicate chunks, keeps highest score)
 - ✅ MongoDB content fetching (hybrid storage support)
@@ -20,6 +22,7 @@
 - ✅ Metadata filtering support
 
 **Parameters**:
+
 ```python
 def retrieve(
     query: str,
@@ -35,9 +38,10 @@ def retrieve(
 )
 ```
 
----
+______________________________________________________________________
 
 ### 2. **API Endpoint**
+
 **Location**: `testing_api/main.py:548-607`
 
 **Endpoint**: `POST /api/v1/retrieve`
@@ -48,7 +52,7 @@ def retrieve(
 
 **Documentation**: Added to `testing_api/openapi.yaml:339-383`
 
----
+______________________________________________________________________
 
 ## 📊 Test Results
 
@@ -57,34 +61,40 @@ def retrieve(
 ### ✅ Passing Tests:
 
 1. **Dual Vector Search**
+
    - 2 searches performed (25 chunks each)
    - Total: 6 chunks retrieved
    - Deduplicated to: 3 unique chunks
    - ✅ PASS
 
-2. **MongoDB Content Fetching**
+1. **MongoDB Content Fetching**
+
    - Content successfully retrieved from MongoDB
    - Full text displayed in results
    - ✅ PASS
 
-3. **Score Threshold**
+1. **Score Threshold**
+
    - Threshold: 0.5
    - Result: 1 chunk passed (score 0.7144)
    - ✅ PASS
 
-4. **Content Truncation**
+1. **Content Truncation**
+
    - `return_full_chunks=False`
    - Content truncated to 500 chars
    - ✅ PASS
 
-5. **Performance Stats**
+1. **Performance Stats**
+
    - Query generation: 0.00ms (no HyDE yet)
    - Vector search: ~1600-4000ms (varies)
    - Dedup + formatting: ~800ms
    - Total: ~2400-4800ms
    - ✅ PASS
 
-6. **Source Statistics**
+1. **Source Statistics**
+
    - Chunks grouped by source
    - Average relevance calculated
    - ✅ PASS
@@ -92,13 +102,14 @@ def retrieve(
 ### ⚠️ Known Limitation:
 
 **Metadata Filtering with Custom Fields**
+
 - Issue: Qdrant requires field index for filtering
 - Example error: `Index required for "category" field`
 - **Workaround**: Use indexed fields (document_id, chunk_id) or create Qdrant index
 - **Impact**: Low - standard fields work fine
 - **Status**: Qdrant configuration issue, not code bug
 
----
+______________________________________________________________________
 
 ## 🏗️ Architecture
 
@@ -149,7 +160,7 @@ User Query
          Top-k Results
 ```
 
----
+______________________________________________________________________
 
 ## 📈 Performance Characteristics
 
@@ -175,29 +186,34 @@ After Filtering: varies (score_threshold applied)
 Final: top_k chunks (default: 20)
 ```
 
----
+______________________________________________________________________
 
 ## 📁 Files Modified/Created
 
 ### Modified Files:
+
 1. `src/insta_rag/core/client.py`
+
    - Added `retrieve()` method (lines 466-675)
 
-2. `testing_api/main.py`
+1. `testing_api/main.py`
+
    - Added `RetrieveRequest` model (lines 130-156)
    - Added `/api/v1/retrieve` endpoint (lines 548-607)
 
-3. `testing_api/openapi.yaml`
+1. `testing_api/openapi.yaml`
+
    - Added `/api/v1/retrieve` documentation (lines 339-383)
    - Added `RetrieveRequest` schema (lines 736-792)
 
 ### Created Files:
-1. `RETRIEVAL_IMPLEMENTATION_PLAN.md` - Comprehensive planning doc
-2. `src/insta_rag/core/retrieval_method.py` - Detailed implementation reference
-3. `test_phase1_retrieve.py` - Phase 1 test suite
-4. `PHASE1_COMPLETION_SUMMARY.md` - This document
 
----
+1. `RETRIEVAL_IMPLEMENTATION_PLAN.md` - Comprehensive planning doc
+1. `src/insta_rag/core/retrieval_method.py` - Detailed implementation reference
+1. `test_phase1_retrieve.py` - Phase 1 test suite
+1. `PHASE1_COMPLETION_SUMMARY.md` - This document
+
+______________________________________________________________________
 
 ## 🔄 Comparison: `search()` vs `retrieve()`
 
@@ -214,17 +230,20 @@ Final: top_k chunks (default: 20)
 | Content Truncation | No | Yes |
 
 **Recommendation**:
+
 - Use `search()` for simple, fast queries
 - Use `retrieve()` for production RAG applications
 
----
+______________________________________________________________________
 
 ## 🚀 Next Steps (Future Phases)
 
 ### Phase 2: HyDE Query Generation (READY)
+
 **Goal**: Improve retrieval by generating hypothetical answers
 
 **Tasks**:
+
 - [ ] Implement HyDEQueryGenerator using Azure OpenAI
 - [ ] Generate standard + HyDE queries in single LLM call
 - [ ] Use structured output for parsing
@@ -233,12 +252,14 @@ Final: top_k chunks (default: 20)
 
 **Expected Improvement**: 20-30% better relevance
 
----
+______________________________________________________________________
 
 ### Phase 3: Cohere Reranking (READY)
+
 **Goal**: Re-rank results using cross-encoder for better relevance
 
 **Tasks**:
+
 - [ ] Implement CohereReranker class
 - [ ] Integrate Cohere Rerank 3.5 API
 - [ ] Add fallback (use vector scores if API fails)
@@ -246,12 +267,14 @@ Final: top_k chunks (default: 20)
 
 **Expected Improvement**: 30-40% better relevance
 
----
+______________________________________________________________________
 
 ### Phase 4: BM25 Keyword Search (OPTIONAL)
+
 **Goal**: Add lexical search for exact term matching
 
 **Tasks**:
+
 - [ ] Implement BM25Searcher using rank-bm25 library
 - [ ] Build document corpus from collection
 - [ ] Merge BM25 + vector results
@@ -259,16 +282,15 @@ Final: top_k chunks (default: 20)
 
 **Expected Improvement**: Better for exact matches (names, codes, IDs)
 
----
+______________________________________________________________________
 
 ## 💡 Usage Examples
 
 ### Basic Retrieval
+
 ```python
 response = client.retrieve(
-    query="What is semantic chunking?",
-    collection_name="knowledge_base",
-    top_k=10
+    query="What is semantic chunking?", collection_name="knowledge_base", top_k=10
 )
 
 for chunk in response.chunks:
@@ -277,26 +299,29 @@ for chunk in response.chunks:
 ```
 
 ### With Filters
+
 ```python
 response = client.retrieve(
     query="pricing information",
     collection_name="documents",
     filters={"user_id": "user_123", "template_id": "template_456"},
-    top_k=20
+    top_k=20,
 )
 ```
 
 ### With Score Threshold
+
 ```python
 response = client.retrieve(
     query="technical specifications",
     collection_name="manuals",
     score_threshold=0.7,  # Only high-quality results
-    top_k=5
+    top_k=5,
 )
 ```
 
 ### API Call (cURL)
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/retrieve" \
   -H "Content-Type: application/json" \
@@ -308,7 +333,7 @@ curl -X POST "http://localhost:8000/api/v1/retrieve" \
   }'
 ```
 
----
+______________________________________________________________________
 
 ## 📊 Success Criteria
 
@@ -325,21 +350,22 @@ curl -X POST "http://localhost:8000/api/v1/retrieve" \
 - [x] Source aggregation working
 - [x] MongoDB integration working
 
----
+______________________________________________________________________
 
 ## 🎓 Key Learnings
 
 1. **Dual search with same query** still provides value through deduplication logic
-2. **MongoDB content fetching** adds latency but necessary for hybrid storage
-3. **Performance is acceptable** for MVP (~2-5 seconds per query)
-4. **Deduplication is critical** - reduced 50 chunks to ~25 unique
-5. **Comprehensive stats** enable future optimization
+1. **MongoDB content fetching** adds latency but necessary for hybrid storage
+1. **Performance is acceptable** for MVP (~2-5 seconds per query)
+1. **Deduplication is critical** - reduced 50 chunks to ~25 unique
+1. **Comprehensive stats** enable future optimization
 
----
+______________________________________________________________________
 
 ## 🔧 Configuration
 
 ### Required Environment Variables
+
 ```env
 QDRANT_URL=https://your-qdrant-instance.cloud.qdrant.io
 QDRANT_API_KEY=your_api_key_here
@@ -350,16 +376,18 @@ MONGO_CONNECTION_STRING=mongodb://... (optional for hybrid storage)
 ```
 
 ### Phase 2 Requirements
+
 ```env
 AZURE_LLM_DEPLOYMENT=gpt-4  # For HyDE generation
 ```
 
 ### Phase 3 Requirements
+
 ```env
 COHERE_API_KEY=your_cohere_key  # For reranking
 ```
 
----
+______________________________________________________________________
 
 ## 📝 Documentation
 
@@ -368,13 +396,14 @@ COHERE_API_KEY=your_cohere_key  # For reranking
 - **Test Suite**: `test_phase1_retrieve.py`
 - **Code Reference**: `src/insta_rag/core/retrieval_method.py`
 
----
+______________________________________________________________________
 
 ## ✅ Conclusion
 
 **Phase 1 MVP is COMPLETE and WORKING!**
 
 The `retrieve()` method provides:
+
 - ✅ Solid foundation for advanced retrieval
 - ✅ Production-ready performance
 - ✅ Comprehensive tracking and stats
@@ -386,6 +415,6 @@ The `retrieve()` method provides:
 
 **Ready for Phase 3 (Reranking)**: Yes, all infrastructure in place
 
----
+______________________________________________________________________
 
 **Next Recommended Action**: Implement Phase 2 (HyDE) for 20-30% improvement in relevance 🚀

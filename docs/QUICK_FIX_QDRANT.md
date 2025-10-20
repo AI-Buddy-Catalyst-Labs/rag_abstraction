@@ -42,7 +42,7 @@ cd /home/macorov/Documents/GitHub/insta_rag/testing_api
 
 **Done!** Your tests will now use local Qdrant with zero latency.
 
----
+______________________________________________________________________
 
 ## Solution 2: Fix Remote Qdrant Connection
 
@@ -56,6 +56,7 @@ curl -I --max-time 10 "https://qdrant-okc4ss8owk0ggwg4ccwsoks0.aibuddy-coolify-i
 ```
 
 **If this times out:** The server is not accessible from your network.
+
 - Check if server is running
 - Check firewall settings
 - Try from different network
@@ -106,6 +107,7 @@ def _initialize_client(self):
                 if attempt < 2:
                     print(f"⚠ Attempt {attempt + 1} failed, retrying...")
                     import time
+
                     time.sleep(2)
                 else:
                     raise
@@ -118,16 +120,16 @@ def _initialize_client(self):
         raise VectorDBError(f"Failed to initialize Qdrant client: {str(e)}") from e
 ```
 
----
+______________________________________________________________________
 
 ## Solution 3: Use Qdrant Cloud (Free Tier)
 
 ### Get Free Qdrant Cloud Account
 
 1. Go to https://cloud.qdrant.io
-2. Sign up (free tier available)
-3. Create a cluster
-4. Copy the URL and API key
+1. Sign up (free tier available)
+1. Create a cluster
+1. Copy the URL and API key
 
 ### Update .env
 
@@ -136,7 +138,7 @@ QDRANT_URL=https://your-cluster-xyz.cloud.qdrant.io
 QDRANT_API_KEY=your_api_key_from_qdrant_cloud
 ```
 
----
+______________________________________________________________________
 
 ## Quick Test Commands
 
@@ -162,7 +164,7 @@ try:
         url="https://qdrant-okc4ss8owk0ggwg4ccwsoks0.aibuddy-coolify-inventory.aukikaurnab.com/",
         api_key="edfBd7pP251ev2uiRcjcBGt7QXJe1P70",
         prefer_grpc=False,
-        timeout=120
+        timeout=120,
     )
     print("Remote:", client.get_collections())
 except Exception as e:
@@ -176,7 +178,7 @@ except Exception as e:
     print("Local failed:", e)
 ```
 
----
+______________________________________________________________________
 
 ## My Recommendation
 
@@ -198,6 +200,7 @@ cd testing_api && ./run.sh
 ```
 
 **Why?**
+
 - ✅ Zero latency
 - ✅ No timeout issues
 - ✅ Works offline
