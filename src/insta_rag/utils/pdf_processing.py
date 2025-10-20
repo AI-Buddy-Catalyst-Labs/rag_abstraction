@@ -6,7 +6,9 @@ from typing import Union
 from .exceptions import PDFCorruptedError, PDFEmptyError, PDFEncryptedError
 
 
-def extract_text_from_pdf(pdf_path: Union[str, Path], parser: str = "pdfplumber") -> str:
+def extract_text_from_pdf(
+    pdf_path: Union[str, Path], parser: str = "pdfplumber"
+) -> str:
     """Extract text from PDF file.
 
     Args:
@@ -120,9 +122,7 @@ def _extract_with_pypdf2(pdf_path: Path) -> str:
             "PyPDF2 not installed. Install with: pip install PyPDF2"
         ) from e
     except Exception as e:
-        raise PDFCorruptedError(
-            f"Failed to extract text with PyPDF2: {str(e)}"
-        ) from e
+        raise PDFCorruptedError(f"Failed to extract text with PyPDF2: {str(e)}") from e
 
 
 def validate_pdf(pdf_path: Union[str, Path]) -> bool:

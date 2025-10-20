@@ -1,74 +1,87 @@
 # Advanced Retrieval Method - Implementation Plan
 
 ## 🎯 Objective
+
 Implement a comprehensive `retrieve()` method for RAGClient that uses hybrid search (vector + keyword) with HyDE query generation and Cohere reranking.
 
----
+______________________________________________________________________
 
 ## 📊 Current State Analysis
 
 ### ✅ What Already Exists
+
 1. **Vector Search (Qdrant)**
+
    - `QdrantVectorDB.search()` - WORKING
    - Returns `VectorSearchResult` objects
    - Supports metadata filters
    - Uses `query_points()` method (updated API)
 
-2. **Embeddings (Azure OpenAI)**
+1. **Embeddings (Azure OpenAI)**
+
    - `OpenAIEmbedder.embed()` - batch embedding
    - `OpenAIEmbedder.embed_query()` - single query embedding
    - 3072-dimensional vectors
 
-3. **MongoDB Integration**
+1. **MongoDB Integration**
+
    - `MongoDBClient.get_chunk_content_by_mongo_id()` - fetch content
    - Hybrid storage working
 
-4. **Response Models**
+1. **Response Models**
+
    - `RetrievalResponse` - complete response structure
    - `RetrievedChunk` - individual result
    - `RetrievalStats` - performance metrics
    - `SourceInfo` - source aggregation
 
-5. **Basic Search Method**
+1. **Basic Search Method**
+
    - `RAGClient.search()` - simple vector search
    - Already implemented and working
 
 ### ❌ What Needs to be Built
 
 1. **HyDE Query Generation**
+
    - LLM call to generate hypothetical answer
    - Structured output for standard + HyDE queries
    - Error handling for LLM failures
 
-2. **BM25 Keyword Search**
+1. **BM25 Keyword Search**
+
    - BM25 algorithm implementation OR integration
    - Document corpus indexing
    - Query tokenization
    - Metadata filtering support
 
-3. **Deduplication Logic**
+1. **Deduplication Logic**
+
    - Hash-based or ID-based dedup
    - Score preservation (keep highest)
    - Efficient merging of results
 
-4. **Cohere Reranking Integration**
+1. **Cohere Reranking Integration**
+
    - Cohere API client setup
    - Batch reranking calls
    - Score normalization
    - Error handling / fallback
 
-5. **Advanced Retrieve Method**
+1. **Advanced Retrieve Method**
+
    - Orchestrate all 6 steps
    - Comprehensive error handling
    - Performance tracking
    - Flexible mode switching
 
-6. **API Endpoints**
+1. **API Endpoints**
+
    - `/api/v1/retrieve` endpoint
    - Request/response models
    - Testing endpoints
 
----
+______________________________________________________________________
 
 ## 🏗️ Architecture Design
 
@@ -108,18 +121,20 @@ RAGClient
 └── search()  [EXISTS - Keep as simple alternative]
 ```
 
----
+______________________________________________________________________
 
 ## 📝 Detailed Implementation Plan
 
 ### Phase 1: Core Infrastructure (Priority: HIGH)
 
 #### 1.1 HyDE Query Generator
+
 **File**: `src/insta_rag/retrieval/query_generator.py`
 
 **Status**: File exists, needs review and potential updates
 
 **Tasks**:
+
 - [ ] Review existing implementation
 - [ ] Add HyDE generation using Azure OpenAI
 - [ ] Use structured output (JSON mode)
@@ -127,6 +142,7 @@ RAGClient
 - [ ] Error handling with fallback to original query
 
 **Implementation**:
+
 ```python
 class HyDEQueryGenerator:
     def generate_queries(self, query: str) -> Dict[str, str]:
@@ -148,21 +164,24 @@ class HyDEQueryGenerator:
 
 **Dependencies**: LLMConfig, Azure OpenAI client
 
----
+______________________________________________________________________
 
 #### 1.2 BM25 Keyword Search
+
 **File**: `src/insta_rag/retrieval/keyword_search.py`
 
 **Status**: File exists, needs review
 
 **Options**:
+
 1. **Use rank_bm25 library** (Python implementation)
-2. **Use Qdrant's payload search** (if available)
-3. **Custom implementation**
+1. **Use Qdrant's payload search** (if available)
+1. **Custom implementation**
 
 **Recommended**: rank_bm25 library (easiest)
 
 **Tasks**:
+
 - [ ] Install rank_bm25: `pip install rank-bm25`
 - [ ] Build document corpus from collection
 - [ ] Implement BM25Searcher class
@@ -170,8 +189,10 @@ class HyDEQueryGenerator:
 - [ ] Cache corpus for performance
 
 **Implementation**:
+
 ```python
 from rank_bm25 import BM25Okapi
+
 
 class BM25Searcher:
     def __init__(self, rag_client, collection_name):
@@ -196,23 +217,27 @@ class BM25Searcher:
 ```
 
 **Challenges**:
+
 - Building corpus from Qdrant (need to fetch all docs)
 - Keeping index updated when docs are added
 - Memory usage for large collections
 
 **Alternative Approach** (if BM25 is too complex for now):
+
 - Skip keyword search initially
 - Set `enable_keyword_search=False` by default
 - Implement later as enhancement
 
----
+______________________________________________________________________
 
 #### 1.3 Cohere Reranker
+
 **File**: `src/insta_rag/retrieval/reranker.py`
 
 **Status**: File exists, needs review
 
 **Tasks**:
+
 - [ ] Review existing implementation
 - [ ] Add Cohere client integration
 - [ ] Implement rerank() method
@@ -220,8 +245,10 @@ class BM25Searcher:
 - [ ] Add fallback (use vector scores if rerank fails)
 
 **Implementation**:
+
 ```python
 import cohere
+
 
 class CohereReranker(BaseReranker):
     def __init__(self, api_key: str, model: str = "rerank-v3.5"):
@@ -229,10 +256,7 @@ class CohereReranker(BaseReranker):
         self.model = model
 
     def rerank(
-        self,
-        query: str,
-        chunks: List[Tuple[str, Dict]],
-        top_k: int
+        self, query: str, chunks: List[Tuple[str, Dict]], top_k: int
     ) -> List[Tuple[int, float]]:
         """
         Rerank chunks using Cohere.
@@ -266,26 +290,29 @@ class CohereReranker(BaseReranker):
 ```
 
 **Dependencies**:
+
 - Cohere API key (from config)
 - `cohere` Python package
 
----
+______________________________________________________________________
 
 ### Phase 2: Helper Functions (Priority: MEDIUM)
 
 #### 2.1 Deduplication
+
 **File**: `src/insta_rag/retrieval/utils.py`
 
 **Tasks**:
+
 - [ ] Create utility functions
 - [ ] Hash-based deduplication
 - [ ] Keep highest score
 
 **Implementation**:
+
 ```python
 def deduplicate_chunks(
-    chunks: List[VectorSearchResult],
-    key_func=lambda x: x.chunk_id
+    chunks: List[VectorSearchResult], key_func=lambda x: x.chunk_id
 ) -> List[VectorSearchResult]:
     """
     Remove duplicate chunks, keeping highest score.
@@ -305,25 +332,28 @@ def deduplicate_chunks(
     return list(chunk_dict.values())
 ```
 
----
+______________________________________________________________________
 
 #### 2.2 Result Formatting
+
 **File**: `src/insta_rag/retrieval/utils.py`
 
 **Tasks**:
+
 - [ ] Convert VectorSearchResult to RetrievedChunk
 - [ ] Apply score threshold
 - [ ] Truncate content if needed
 - [ ] Calculate source statistics
 
 **Implementation**:
+
 ```python
 def format_retrieval_results(
     search_results: List,
     query: str,
     return_full_chunks: bool,
     score_threshold: Optional[float],
-    mongodb_client: Optional[MongoDBClient]
+    mongodb_client: Optional[MongoDBClient],
 ) -> List[RetrievedChunk]:
     """Format search results into RetrievedChunk objects."""
     # Fetch MongoDB content if needed
@@ -333,14 +363,16 @@ def format_retrieval_results(
     pass
 ```
 
----
+______________________________________________________________________
 
 ### Phase 3: Main Retrieve Method (Priority: HIGH)
 
 #### 3.1 RAGClient.retrieve()
+
 **File**: `src/insta_rag/core/client.py`
 
 **Tasks**:
+
 - [ ] Add retrieve() method to RAGClient
 - [ ] Orchestrate all 6 steps
 - [ ] Add comprehensive error handling
@@ -348,6 +380,7 @@ def format_retrieval_results(
 - [ ] Support all modes (full hybrid, vector-only, etc.)
 
 **Implementation Structure**:
+
 ```python
 def retrieve(
     self,
@@ -378,20 +411,23 @@ def retrieve(
     # Return RetrievalResponse
 ```
 
----
+______________________________________________________________________
 
 ### Phase 4: API Endpoints (Priority: MEDIUM)
 
 #### 4.1 Retrieve Endpoint
+
 **File**: `testing_api/main.py`
 
 **Tasks**:
+
 - [ ] Add RetrieveRequest model
 - [ ] Add /api/v1/retrieve endpoint
 - [ ] Support all parameters
 - [ ] Add to OpenAPI spec
 
 **Implementation**:
+
 ```python
 class RetrieveRequest(BaseModel):
     query: str
@@ -403,6 +439,7 @@ class RetrieveRequest(BaseModel):
     enable_hyde: bool = True
     score_threshold: Optional[float] = None
 
+
 @app.post("/api/v1/retrieve")
 async def retrieve_documents(request: RetrieveRequest):
     """Advanced retrieval with hybrid search."""
@@ -410,12 +447,14 @@ async def retrieve_documents(request: RetrieveRequest):
     return response.to_dict()
 ```
 
----
+______________________________________________________________________
 
 ### Phase 5: Testing & Documentation (Priority: HIGH)
 
 #### 5.1 Unit Tests
+
 **Tasks**:
+
 - [ ] Test HyDE query generation
 - [ ] Test BM25 search
 - [ ] Test deduplication
@@ -423,81 +462,94 @@ async def retrieve_documents(request: RetrieveRequest):
 - [ ] Test full pipeline
 
 #### 5.2 Integration Tests
+
 **Tasks**:
+
 - [ ] End-to-end retrieval test
 - [ ] Test with MongoDB hybrid storage
 - [ ] Test all retrieval modes
 - [ ] Performance benchmarking
 
 #### 5.3 Documentation
+
 **Tasks**:
+
 - [ ] API documentation
 - [ ] Usage examples
 - [ ] Performance guidelines
 - [ ] Troubleshooting guide
 
----
+______________________________________________________________________
 
 ## 🚀 Implementation Phases & Timeline
 
 ### Phase 1: MVP (Minimum Viable Product)
+
 **Goal**: Basic retrieve() method working
 
 **Components**:
+
 1. ✅ Basic retrieve() method structure (DONE - created retrieval_method.py)
-2. ⏳ Simple query generation (no HyDE initially)
-3. ⏳ Dual vector search using existing methods
-4. ⏳ Basic deduplication
-5. ⏳ NO keyword search (skip for MVP)
-6. ⏳ NO reranking (skip for MVP)
-7. ⏳ Basic API endpoint
+1. ⏳ Simple query generation (no HyDE initially)
+1. ⏳ Dual vector search using existing methods
+1. ⏳ Basic deduplication
+1. ⏳ NO keyword search (skip for MVP)
+1. ⏳ NO reranking (skip for MVP)
+1. ⏳ Basic API endpoint
 
 **Output**: Functional retrieve() that does dual vector search + dedup
 
----
+______________________________________________________________________
 
 ### Phase 2: HyDE Integration
+
 **Goal**: Add query generation
 
 **Components**:
+
 1. Review/implement HyDEQueryGenerator
-2. LLM-based query optimization
-3. Structured output parsing
-4. Error handling
+1. LLM-based query optimization
+1. Structured output parsing
+1. Error handling
 
 **Output**: retrieve() with HyDE query generation
 
----
+______________________________________________________________________
 
 ### Phase 3: Reranking Integration
+
 **Goal**: Add Cohere reranking
 
 **Components**:
+
 1. Review/implement CohereReranker
-2. API integration
-3. Error handling & fallback
-4. Performance optimization
+1. API integration
+1. Error handling & fallback
+1. Performance optimization
 
 **Output**: retrieve() with reranking for better results
 
----
+______________________________________________________________________
 
 ### Phase 4: BM25 Integration (Optional)
+
 **Goal**: Add keyword search
 
 **Components**:
+
 1. Implement BM25Searcher OR use library
-2. Corpus building
-3. Index management
-4. Hybrid fusion
+1. Corpus building
+1. Index management
+1. Hybrid fusion
 
 **Output**: Full hybrid search (vector + keyword)
 
----
+______________________________________________________________________
 
 ## 📋 Dependencies & Requirements
 
 ### Python Packages Needed
+
 ```bash
 # Already installed (verify):
 - qdrant-client>=1.7.0
@@ -510,6 +562,7 @@ async def retrieve_documents(request: RetrieveRequest):
 ```
 
 ### API Keys Needed
+
 ```env
 # Already configured:
 AZURE_OPENAI_API_KEY ✅
@@ -521,17 +574,19 @@ COHERE_API_KEY=your_cohere_api_key_here
 ```
 
 ### Configuration Updates
+
 **File**: `src/insta_rag/core/config.py`
 
 - ✅ RerankingConfig exists
 - ✅ LLMConfig exists
 - ⏳ Verify all fields are present
 
----
+______________________________________________________________________
 
 ## 🎯 Decision Points
 
 ### Decision 1: BM25 Implementation
+
 **Options**:
 A. Use rank-bm25 library (simple, fast to implement)
 B. Custom implementation (more control)
@@ -541,9 +596,10 @@ C. Skip for now (focus on vector + reranking first)
 
 **Rationale**: Vector search + reranking provides 80% of value, BM25 adds 20%
 
----
+______________________________________________________________________
 
 ### Decision 2: HyDE Implementation
+
 **Options**:
 A. Full LLM-based HyDE generation
 B. Simple query expansion (synonyms, etc.)
@@ -553,9 +609,10 @@ C. Skip for MVP
 
 **Rationale**: HyDE provides significant improvements, but not critical for MVP
 
----
+______________________________________________________________________
 
 ### Decision 3: Reranking Fallback
+
 **Options**:
 A. Fail if Cohere API fails
 B. Fall back to vector scores
@@ -565,11 +622,12 @@ C. Cache rerank results
 
 **Rationale**: System should work even if reranking fails
 
----
+______________________________________________________________________
 
 ## 📊 Success Criteria
 
 ### Phase 1 MVP Success
+
 - [ ] retrieve() method callable
 - [ ] Dual vector search working
 - [ ] Deduplication working
@@ -578,6 +636,7 @@ C. Cache rerank results
 - [ ] No errors with test data
 
 ### Full Implementation Success
+
 - [ ] All 6 steps working
 - [ ] HyDE improves results
 - [ ] Reranking improves relevance
@@ -586,61 +645,68 @@ C. Cache rerank results
 - [ ] Comprehensive error handling
 - [ ] Full documentation
 
----
+______________________________________________________________________
 
 ## 🔧 Implementation Order (Recommended)
 
 **Week 1: Foundation**
+
 1. Review existing retrieval code
-2. Create MVP retrieve() method (no HyDE, no BM25, no reranking)
-3. Add basic API endpoint
-4. Test with existing collections
+1. Create MVP retrieve() method (no HyDE, no BM25, no reranking)
+1. Add basic API endpoint
+1. Test with existing collections
 
 **Week 2: Core Features**
-5. Add HyDE query generation
-6. Add Cohere reranking
-7. Test performance improvements
+5\. Add HyDE query generation
+6\. Add Cohere reranking
+7\. Test performance improvements
 
 **Week 3: Advanced Features**
-8. Add BM25 keyword search (if needed)
-9. Optimize performance
-10. Add comprehensive tests
+8\. Add BM25 keyword search (if needed)
+9\. Optimize performance
+10\. Add comprehensive tests
 
 **Week 4: Polish**
-11. Documentation
-12. Error handling refinement
-13. Production readiness
+11\. Documentation
+12\. Error handling refinement
+13\. Production readiness
 
----
+______________________________________________________________________
 
 ## 🚨 Risks & Mitigation
 
 ### Risk 1: BM25 Corpus Building
+
 **Issue**: Building BM25 corpus requires fetching all documents
 **Impact**: High memory usage, slow initialization
 **Mitigation**:
+
 - Use lazy loading
 - Cache corpus
 - Implement incremental updates
 - OR skip BM25 for now
 
 ### Risk 2: Cohere API Rate Limits
+
 **Issue**: Reranking API may have rate limits
 **Impact**: Failed retrievals
 **Mitigation**:
+
 - Implement retry logic
 - Fallback to vector scores
 - Batch processing
 
 ### Risk 3: Performance Degradation
+
 **Issue**: 6-step pipeline may be slow
 **Impact**: Poor user experience
 **Mitigation**:
+
 - Parallel execution where possible
 - Caching
 - Mode switching (fast vs accurate)
 
----
+______________________________________________________________________
 
 ## 📁 File Structure
 
@@ -667,29 +733,33 @@ testing_api/
 └── openapi.yaml  [UPDATE - add retrieve spec]
 ```
 
----
+______________________________________________________________________
 
 ## ✅ Next Immediate Steps
 
 1. **Review existing retrieval modules**
+
    - Check what's in `src/insta_rag/retrieval/`
    - Identify what works vs needs updates
 
-2. **Build Phase 1 MVP**
+1. **Build Phase 1 MVP**
+
    - Start with simple retrieve() (dual vector search)
    - No HyDE, no BM25, no reranking
    - Get it working end-to-end
 
-3. **Test MVP**
+1. **Test MVP**
+
    - Upload test documents
    - Call retrieve()
    - Verify results
 
-4. **Iterate**
+1. **Iterate**
+
    - Add HyDE
    - Add reranking
    - Add BM25 (if needed)
 
----
+______________________________________________________________________
 
 This plan provides a clear roadmap from current state to full implementation, with flexibility to adjust based on priorities and challenges discovered during implementation.

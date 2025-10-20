@@ -3,7 +3,7 @@
 import uuid
 from typing import Any, Dict, List, Optional
 
-from ..exceptions import CollectionNotFoundError, VectorDBError
+from ..utils.exceptions import CollectionNotFoundError, VectorDBError
 from .base import BaseVectorDB, VectorSearchResult
 
 
@@ -44,7 +44,6 @@ class QdrantVectorDB(BaseVectorDB):
             from qdrant_client import QdrantClient
             from qdrant_client.models import Distance, VectorParams
             import urllib.parse
-            import ssl
 
             # Store for later use
             self.Distance = Distance
@@ -279,9 +278,7 @@ class QdrantVectorDB(BaseVectorDB):
                     chunk_id=hit.payload.get("chunk_id", str(hit.id)),
                     score=hit.score,
                     content=hit.payload.get("content", ""),
-                    metadata={
-                        k: v for k, v in hit.payload.items() if k != "content"
-                    },
+                    metadata={k: v for k, v in hit.payload.items() if k != "content"},
                     vector_id=str(hit.id),
                 )
                 results.append(result)
@@ -388,7 +385,9 @@ class QdrantVectorDB(BaseVectorDB):
 
             # Build filter for document_ids
             query_filter = Filter(
-                must=[FieldCondition(key="document_id", match=MatchAny(any=document_ids))]
+                must=[
+                    FieldCondition(key="document_id", match=MatchAny(any=document_ids))
+                ]
             )
 
             # Get count before deletion
@@ -436,9 +435,7 @@ class QdrantVectorDB(BaseVectorDB):
         except CollectionNotFoundError:
             raise
         except Exception as e:
-            raise VectorDBError(
-                f"Failed to get collection info: {str(e)}"
-            ) from e
+            raise VectorDBError(f"Failed to get collection info: {str(e)}") from e
 
     def get_document_ids(
         self,
@@ -534,7 +531,12 @@ class QdrantVectorDB(BaseVectorDB):
             Number of chunks matching criteria
         """
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
+            from qdrant_client.models import (
+                Filter,
+                FieldCondition,
+                MatchValue,
+                MatchAny,
+            )
 
             # Verify collection exists
             if not self.collection_exists(collection_name):
@@ -603,7 +605,9 @@ class QdrantVectorDB(BaseVectorDB):
 
             # Build filter for document_ids
             query_filter = Filter(
-                must=[FieldCondition(key="document_id", match=MatchAny(any=document_ids))]
+                must=[
+                    FieldCondition(key="document_id", match=MatchAny(any=document_ids))
+                ]
             )
 
             # Scroll through all matching points
@@ -660,7 +664,7 @@ class QdrantVectorDB(BaseVectorDB):
             Number of chunks updated
         """
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
 
             # Verify collection exists
             if not self.collection_exists(collection_name):

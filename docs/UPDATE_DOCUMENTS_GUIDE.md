@@ -9,6 +9,7 @@ The `update_documents()` method provides comprehensive document management capab
 ### 1. **Four Update Strategies**
 
 #### REPLACE Strategy
+
 - Delete existing documents and add new ones
 - Use Case: User uploads a new version of an existing document
 - Supports filtering by metadata or document IDs
@@ -23,6 +24,7 @@ response = client.update_documents(
 ```
 
 #### APPEND Strategy
+
 - Add new documents without deleting any existing ones
 - Use Case: Adding new documents to the knowledge base
 - Simple addition operation
@@ -32,11 +34,12 @@ response = client.update_documents(
     collection_name="my_collection",
     update_strategy="append",
     new_documents=[new_doc1, new_doc2],
-    metadata_updates={"category": "technical_docs"}
+    metadata_updates={"category": "technical_docs"},
 )
 ```
 
 #### DELETE Strategy
+
 - Remove documents matching specified criteria
 - Use Case: Remove outdated or irrelevant documents
 - Supports both filter-based and ID-based deletion
@@ -46,18 +49,19 @@ response = client.update_documents(
 response = client.update_documents(
     collection_name="my_collection",
     update_strategy="delete",
-    filters={"status": "archived"}
+    filters={"status": "archived"},
 )
 
 # Delete by document IDs
 response = client.update_documents(
     collection_name="my_collection",
     update_strategy="delete",
-    document_ids=["doc-123", "doc-456"]
+    document_ids=["doc-123", "doc-456"],
 )
 ```
 
 #### UPSERT Strategy
+
 - Update if document exists, insert if it doesn't
 - Use Case: Synchronizing external data sources
 - Automatically detects existence by document_id
@@ -131,9 +135,9 @@ class UpdateDocumentsResponse:
 ### New Helper Methods in VectorDB Layer
 
 1. **`get_document_ids()`** - Get unique document IDs matching filters
-2. **`count_chunks()`** - Count chunks matching criteria
-3. **`get_chunk_ids_by_documents()`** - Get all chunk IDs for specific documents
-4. **`update_metadata()`** - Update metadata without reprocessing content
+1. **`count_chunks()`** - Count chunks matching criteria
+1. **`get_chunk_ids_by_documents()`** - Get all chunk IDs for specific documents
+1. **`update_metadata()`** - Update metadata without reprocessing content
 
 ### MongoDB Integration
 
@@ -212,7 +216,7 @@ client = RAGClient(config)
 new_docs = [
     DocumentInput.from_text(
         text="Updated version of the document with new information.",
-        metadata={"version": 2, "updated_by": "admin"}
+        metadata={"version": 2, "updated_by": "admin"},
     )
 ]
 
@@ -250,11 +254,11 @@ print(f"Affected {response.documents_affected} documents")
 docs = [
     DocumentInput.from_text(
         text="Content for document 1",
-        metadata={"document_id": "user-123-profile", "type": "profile"}
+        metadata={"document_id": "user-123-profile", "type": "profile"},
     ),
     DocumentInput.from_text(
         text="Content for document 2",
-        metadata={"document_id": "user-123-settings", "type": "settings"}
+        metadata={"document_id": "user-123-settings", "type": "settings"},
     ),
 ]
 
@@ -280,7 +284,7 @@ response = client.update_documents(
     metadata_updates={
         "status": "reviewed",
         "reviewed_by": "john.doe",
-        "review_date": "2025-01-15"
+        "review_date": "2025-01-15",
     },
     reprocess_chunks=False,  # Don't regenerate embeddings
 )
@@ -302,10 +306,10 @@ print(f"Updated metadata for {response.chunks_updated} chunks")
 ### Best Practices
 
 1. **Use Filters Wisely**: Add metadata fields to enable efficient filtering
-2. **Batch Operations**: Group related updates into single calls
-3. **Metadata-Only Updates**: Use when only metadata changes (faster)
-4. **Document IDs**: Provide explicit IDs for upsert operations
-5. **Monitor Performance**: Check `chunks_deleted/added/updated` in response
+1. **Batch Operations**: Group related updates into single calls
+1. **Metadata-Only Updates**: Use when only metadata changes (faster)
+1. **Document IDs**: Provide explicit IDs for upsert operations
+1. **Monitor Performance**: Check `chunks_deleted/added/updated` in response
 
 ## Error Handling Example
 
@@ -313,7 +317,7 @@ print(f"Updated metadata for {response.chunks_updated} chunks")
 from insta_rag.exceptions import (
     CollectionNotFoundError,
     NoDocumentsFoundError,
-    ValidationError
+    ValidationError,
 )
 
 try:
@@ -344,16 +348,16 @@ except ValidationError as e:
 ### Core Library Files
 
 1. **`src/insta_rag/vectordb/base.py`** - Added abstract helper methods
-2. **`src/insta_rag/vectordb/qdrant.py`** - Implemented Qdrant helper methods
-3. **`src/insta_rag/mongodb_client.py`** - Added batch deletion methods
-4. **`src/insta_rag/core/client.py`** - Implemented main `update_documents()` method
-5. **`src/insta_rag/models/response.py`** - Already had `UpdateDocumentsResponse` model
+1. **`src/insta_rag/vectordb/qdrant.py`** - Implemented Qdrant helper methods
+1. **`src/insta_rag/mongodb_client.py`** - Added batch deletion methods
+1. **`src/insta_rag/core/client.py`** - Implemented main `update_documents()` method
+1. **`src/insta_rag/models/response.py`** - Already had `UpdateDocumentsResponse` model
 
 ### Testing Files
 
 1. **`testing_api/main.py`** - Added 6 test endpoints for update operations
-2. **`test_update_documents.py`** - Comprehensive test script for all strategies
-3. **`UPDATE_DOCUMENTS_GUIDE.md`** - This documentation file
+1. **`test_update_documents.py`** - Comprehensive test script for all strategies
+1. **`UPDATE_DOCUMENTS_GUIDE.md`** - This documentation file
 
 ## Summary
 
@@ -370,8 +374,8 @@ The `update_documents()` method provides a complete CRUD interface for managing 
 ## Next Steps
 
 1. Run the test script: `python test_update_documents.py`
-2. Start the testing API: `cd testing_api && uvicorn main:app --reload`
-3. Try the example code snippets above
-4. Integrate into your application
+1. Start the testing API: `cd testing_api && uvicorn main:app --reload`
+1. Try the example code snippets above
+1. Integrate into your application
 
 Enjoy your new document management capabilities! 🚀

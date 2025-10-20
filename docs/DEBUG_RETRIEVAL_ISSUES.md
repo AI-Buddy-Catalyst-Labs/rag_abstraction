@@ -3,6 +3,7 @@
 ## 🔍 Issues You're Experiencing
 
 Based on your API response:
+
 ```json
 {
   "chunks": [],                      // ❌ No chunks returned!
@@ -20,18 +21,20 @@ Based on your API response:
 **Possible causes:**
 
 1. **High score_threshold** - You might have set `score_threshold` too high
+
    - Vector similarity scores are typically 0.0-1.0
    - Setting threshold > 0.5 might filter everything out
 
-2. **top_k=0** - Check if `top_k` was accidentally set to 0
+1. **top_k=0** - Check if `top_k` was accidentally set to 0
 
-3. **MongoDB fetch failing silently** - Content not being retrieved from MongoDB
+1. **MongoDB fetch failing silently** - Content not being retrieved from MongoDB
 
 ### Issue 2: BM25 Not Working (`keyword_search_chunks: 0`)
 
 **Root cause:** Content is stored in MongoDB, not in Qdrant payload.
 
 BM25 keyword search requires **content in Qdrant** to build a searchable index. When content is stored in MongoDB:
+
 - Qdrant only has: `vectors + metadata + mongodb_id`
 - Qdrant does NOT have: `content` field
 - BM25 cannot build index → skips keyword search
@@ -86,16 +89,13 @@ config.mongodb = None  # Disable MongoDB content storage
 client = RAGClient(config)
 
 # Upload documents - content will be stored in Qdrant
-response = client.add_documents(
-    documents=[...],
-    collection_name="your_collection"
-)
+response = client.add_documents(documents=[...], collection_name="your_collection")
 
 # Now BM25 will work!
 response = client.retrieve(
     query="your query",
     collection_name="your_collection",
-    enable_keyword_search=True  # BM25 will now work
+    enable_keyword_search=True,  # BM25 will now work
 )
 ```
 
@@ -109,8 +109,8 @@ This would require modifying `src/insta_rag/retrieval/keyword_search.py` to fetc
 response = client.retrieve(
     query="your query",
     collection_name="your_collection",
-    enable_hyde=True,           # Keep HyDE
-    enable_keyword_search=False # Disable BM25
+    enable_hyde=True,  # Keep HyDE
+    enable_keyword_search=False,  # Disable BM25
 )
 ```
 
@@ -142,6 +142,7 @@ Warning: HyDE generation failed: Error code: 404 - ...
 ```
 
 Look for:
+
 - MongoDB fetch count
 - BM25 corpus size
 - Score threshold filtering
@@ -160,8 +161,8 @@ response = client.retrieve(
     collection_name="insta_rag_test_collection",
     top_k=10,
     score_threshold=None,  # No filtering
-    enable_hyde=False,     # Disable for faster test
-    enable_keyword_search=False
+    enable_hyde=False,  # Disable for faster test
+    enable_keyword_search=False,
 )
 
 print(f"Success: {response.success}")
@@ -182,11 +183,11 @@ Vector similarity scores (COSINE distance):
 
 | Score Range | Meaning |
 |------------|---------|
-| 0.9 - 1.0  | Extremely similar (exact or near-exact match) |
-| 0.7 - 0.9  | Very similar (good match) |
-| 0.5 - 0.7  | Moderately similar (may be relevant) |
-| 0.3 - 0.5  | Somewhat similar (loosely related) |
-| 0.0 - 0.3  | Not very similar (likely not relevant) |
+| 0.9 - 1.0 | Extremely similar (exact or near-exact match) |
+| 0.7 - 0.9 | Very similar (good match) |
+| 0.5 - 0.7 | Moderately similar (may be relevant) |
+| 0.3 - 0.5 | Somewhat similar (loosely related) |
+| 0.0 - 0.3 | Not very similar (likely not relevant) |
 
 **Typical scores you'll see:** 0.15 - 0.4 for normal searches
 
@@ -200,12 +201,12 @@ Vector similarity scores (COSINE distance):
 response = client.retrieve(
     query="your question",
     collection_name="your_collection",
-    top_k=20,                      # Good default
-    enable_hyde=True,              # Better retrieval quality
-    enable_keyword_search=False,   # Disable (won't work with MongoDB storage)
-    score_threshold=None,          # Let top-k handle selection
-    return_full_chunks=True,       # Get full content
-    deduplicate=True               # Remove duplicates
+    top_k=20,  # Good default
+    enable_hyde=True,  # Better retrieval quality
+    enable_keyword_search=False,  # Disable (won't work with MongoDB storage)
+    score_threshold=None,  # Let top-k handle selection
+    return_full_chunks=True,  # Get full content
+    deduplicate=True,  # Remove duplicates
 )
 ```
 
@@ -215,12 +216,12 @@ response = client.retrieve(
 response = client.retrieve(
     query="your question",
     collection_name="your_collection",
-    top_k=10,                      # Fewer results
-    enable_hyde=False,             # Skip HyDE (saves ~1.3s)
-    enable_keyword_search=False,   # Skip BM25
-    score_threshold=0.001,           # Basic quality filter
-    return_full_chunks=False,      # Truncated content
-    deduplicate=True
+    top_k=10,  # Fewer results
+    enable_hyde=False,  # Skip HyDE (saves ~1.3s)
+    enable_keyword_search=False,  # Skip BM25
+    score_threshold=0.001,  # Basic quality filter
+    return_full_chunks=False,  # Truncated content
+    deduplicate=True,
 )
 ```
 
@@ -257,6 +258,7 @@ http://localhost:8000/docs
 ```
 
 Look for the `/api/v1/retrieve` endpoint with:
+
 - Parameter descriptions
 - Default values
 - Example requests
@@ -279,9 +281,7 @@ print("=" * 80)
 # Test 1: Simple search (no Phase 2 features)
 print("\n1. Testing basic search...")
 response1 = client.search(
-    query="test",
-    collection_name="insta_rag_test_collection",
-    top_k=5
+    query="test", collection_name="insta_rag_test_collection", top_k=5
 )
 print(f"   Chunks: {len(response1.chunks)}")
 print(f"   Success: {response1.success}")
@@ -294,7 +294,7 @@ response2 = client.retrieve(
     top_k=5,
     score_threshold=None,
     enable_hyde=False,
-    enable_keyword_search=False
+    enable_keyword_search=False,
 )
 print(f"   Chunks: {len(response2.chunks)}")
 print(f"   Success: {response2.success}")

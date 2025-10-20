@@ -7,6 +7,7 @@ from src.insta_rag.core.client import RAGClient
 # Load environment variables from .env
 load_dotenv()
 
+
 def main():
     """Demonstrate basic usage of insta_rag."""
 
@@ -19,7 +20,7 @@ def main():
     client = RAGClient(config)
 
     print("✓ RAG Client initialized successfully!")
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  - Vector DB: {config.vectordb.provider}")
     print(f"  - Vector DB URL: {config.vectordb.url}")
     print(f"  - Embedding Provider: {config.embedding.provider}")
@@ -31,7 +32,7 @@ def main():
     # Example: Create a collection
     collection_name = "my_documents"
 
-    print(f"\n\nExample operations:")
+    print("\n\nExample operations:")
     print("=" * 60)
 
     # Check if collection exists
@@ -44,12 +45,12 @@ def main():
         client.vectordb.create_collection(
             collection_name=collection_name,
             vector_size=config.embedding.dimensions,
-            distance_metric="cosine"
+            distance_metric="cosine",
         )
-        print(f"   ✓ Collection created successfully")
+        print("   ✓ Collection created successfully")
 
     # Get collection info
-    print(f"\n3. Getting collection info...")
+    print("\n3. Getting collection info...")
     info = client.vectordb.get_collection_info(collection_name)
     print(f"   Collection: {info['name']}")
     print(f"   Vectors count: {info['vectors_count']}")

@@ -13,6 +13,7 @@ docker run -d -p 6333:6333 -p 6334:6334 \
 ```
 
 **Without Docker volume (data will be lost on restart):**
+
 ```bash
 docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
 ```
@@ -98,6 +99,7 @@ print('✓ Local Qdrant working!')
 Open in browser: **http://localhost:6333/dashboard**
 
 You can:
+
 - View collections
 - Browse points
 - Run queries
@@ -108,11 +110,13 @@ You can:
 When you want to use remote Qdrant again:
 
 1. Stop local Qdrant:
+
 ```bash
 docker stop $(docker ps -q --filter ancestor=qdrant/qdrant)
 ```
 
 2. Restore .env:
+
 ```env
 QDRANT_URL=https://qdrant-okc4ss8owk0ggwg4ccwsoks0.aibuddy-coolify-inventory.aukikaurnab.com/
 QDRANT_API_KEY=edfBd7pP251ev2uiRcjcBGt7QXJe1P70
@@ -143,6 +147,7 @@ docker run -d -p 7333:6333 qdrant/qdrant
 ### Docker not installed
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt update
 sudo apt install docker.io
@@ -152,6 +157,7 @@ sudo usermod -aG docker $USER
 ```
 
 **macOS:**
+
 ```bash
 brew install docker
 ```
@@ -163,6 +169,7 @@ sudo docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant
 ```
 
 Or add user to docker group (Ubuntu):
+
 ```bash
 sudo usermod -aG docker $USER
 newgrp docker
@@ -171,6 +178,7 @@ newgrp docker
 ## Production Considerations
 
 For production, consider:
+
 - Using persistent volumes
 - Setting up authentication
 - Configuring backups
@@ -179,12 +187,14 @@ For production, consider:
 ## Summary
 
 Local Qdrant is perfect for:
+
 - Development and testing
 - Learning and experimentation
 - When remote Qdrant has connection issues
 - Offline development
 
 It's **not recommended** for:
+
 - Production deployments
 - Shared/team environments
 - When you need remote access

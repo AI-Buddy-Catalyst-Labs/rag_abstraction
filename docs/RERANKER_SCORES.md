@@ -77,7 +77,7 @@ If you prefer **normalized 0-1 scores**, you can use Cohere reranker instead:
 
 ```python
 # In .env:
-COHERE_API_KEY=your_cohere_key_here
+COHERE_API_KEY = your_cohere_key_here
 
 # Cohere produces 0-1 scores:
 # - 1.0 = Perfect match
@@ -96,6 +96,6 @@ response = client.retrieve(
 ## Key Takeaways:
 
 1. **BGE reranker** uses negative scores (higher = better)
-2. **Use negative thresholds** like -5.0, -3.0, or -2.0 with BGE
-3. **No threshold** (None) returns all results sorted by relevance
-4. **Different models** use different score ranges - adjust accordingly
+1. **Use negative thresholds** like -5.0, -3.0, or -2.0 with BGE
+1. **No threshold** (None) returns all results sorted by relevance
+1. **Different models** use different score ranges - adjust accordingly

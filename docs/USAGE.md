@@ -1,4 +1,4 @@
-  # insta_rag Usage Guide
+# insta_rag Usage Guide
 
 This guide shows you how to use the insta_rag library for document processing and retrieval.
 
@@ -49,13 +49,11 @@ documents = [
     # From PDF file
     DocumentInput.from_file(
         "path/to/document.pdf",
-        metadata={"user_id": "user_123", "document_type": "business_doc"}
+        metadata={"user_id": "user_123", "document_type": "business_doc"},
     ),
-
     # From text
     DocumentInput.from_text(
-        "Your text content here...",
-        metadata={"source": "web_scrape"}
+        "Your text content here...", metadata={"source": "web_scrape"}
     ),
 ]
 
@@ -63,7 +61,7 @@ documents = [
 response = client.add_documents(
     documents=documents,
     collection_name="my_knowledge_base",
-    metadata={"project": "my_project"}
+    metadata={"project": "my_project"},
 )
 
 print(f"Processed {response.total_chunks} chunks")
@@ -84,30 +82,27 @@ config = RAGConfig.from_env()
 
 ```python
 from insta_rag.core.config import (
-    RAGConfig, VectorDBConfig, EmbeddingConfig,
-    ChunkingConfig, PDFConfig
+    RAGConfig,
+    VectorDBConfig,
+    EmbeddingConfig,
+    ChunkingConfig,
+    PDFConfig,
 )
 
 config = RAGConfig(
     vectordb=VectorDBConfig(
-        url="https://your-qdrant-instance.cloud.qdrant.io",
-        api_key="your_api_key"
+        url="https://your-qdrant-instance.cloud.qdrant.io", api_key="your_api_key"
     ),
     embedding=EmbeddingConfig(
         provider="openai",
         model="text-embedding-3-large",
         api_key="your_openai_key",
-        dimensions=3072
+        dimensions=3072,
     ),
     chunking=ChunkingConfig(
-        method="semantic",
-        max_chunk_size=1000,
-        overlap_percentage=0.2
+        method="semantic", max_chunk_size=1000, overlap_percentage=0.2
     ),
-    pdf=PDFConfig(
-        parser="pdfplumber",
-        validate_text=True
-    )
+    pdf=PDFConfig(parser="pdfplumber", validate_text=True),
 )
 ```
 
@@ -121,8 +116,8 @@ doc = DocumentInput.from_file(
     metadata={
         "user_id": "user_123",
         "document_type": "contract",
-        "department": "legal"
-    }
+        "department": "legal",
+    },
 )
 ```
 
@@ -130,8 +125,7 @@ doc = DocumentInput.from_file(
 
 ```python
 doc = DocumentInput.from_file(
-    file_path="document.txt",
-    metadata={"source": "knowledge_base"}
+    file_path="document.txt", metadata={"source": "knowledge_base"}
 )
 ```
 
@@ -140,7 +134,7 @@ doc = DocumentInput.from_file(
 ```python
 doc = DocumentInput.from_text(
     text="Your document content...",
-    metadata={"source": "web_scrape", "url": "https://example.com"}
+    metadata={"source": "web_scrape", "url": "https://example.com"},
 )
 ```
 
@@ -152,7 +146,7 @@ response = client.add_documents(
     collection_name="my_collection",
     metadata={"batch_id": "batch_001"},
     batch_size=100,  # Embedding batch size
-    validate_chunks=True  # Enable quality validation
+    validate_chunks=True,  # Enable quality validation
 )
 
 # Check results
@@ -192,14 +186,12 @@ chunking = ChunkingConfig(
     method="semantic",
     max_chunk_size=1000,
     overlap_percentage=0.2,
-    semantic_threshold_percentile=95
+    semantic_threshold_percentile=95,
 )
 
 # For faster processing with less accuracy
 chunking = ChunkingConfig(
-    method="recursive",
-    max_chunk_size=800,
-    overlap_percentage=0.15
+    method="recursive", max_chunk_size=800, overlap_percentage=0.15
 )
 ```
 
@@ -212,7 +204,7 @@ pdf_config = PDFConfig(
     parser="pdfplumber",  # or "pypdf2"
     extract_images=False,
     extract_tables=False,
-    validate_text=True
+    validate_text=True,
 )
 ```
 
@@ -230,7 +222,7 @@ embedding = EmbeddingConfig(
     api_base="https://your-instance.openai.azure.com/",
     api_version="2024-02-01",
     deployment_name="text-embedding-3-large",
-    dimensions=3072
+    dimensions=3072,
 )
 ```
 
@@ -241,7 +233,7 @@ embedding = EmbeddingConfig(
     provider="openai",
     model="text-embedding-3-large",
     api_key="your_key",
-    dimensions=3072
+    dimensions=3072,
 )
 ```
 
@@ -257,22 +249,18 @@ doc = DocumentInput.from_file(
     metadata={
         # User identification
         "user_id": "user_123",
-
         # Document categorization
         "document_type": "business_document",
         "department": "sales",
-
         # Lifecycle management
         "is_standalone": True,
-
         # Template association
         "template_id": "template_456",
-
         # Custom fields
         "status": "active",
         "tags": ["contract", "2024"],
-        "priority": "high"
-    }
+        "priority": "high",
+    },
 )
 ```
 
@@ -288,8 +276,8 @@ response = client.add_documents(
         "project": "project_name",
         "batch_id": "batch_001",
         "uploaded_by": "user_123",
-        "timestamp": "2024-01-15"
-    }
+        "timestamp": "2024-01-15",
+    },
 )
 ```
 
@@ -302,7 +290,7 @@ from insta_rag.exceptions import (
     PDFEmptyError,
     ChunkingError,
     EmbeddingError,
-    VectorDBError
+    VectorDBError,
 )
 
 try:
@@ -366,9 +354,9 @@ python examples/basic_usage.py
 ### Common Issues
 
 1. **"Collection not found"**: Create the collection first or let `add_documents()` auto-create it
-2. **"Embedding API error"**: Check API keys and rate limits
-3. **"PDF extraction failed"**: Try a different parser or check PDF quality
-4. **"Token count exceeded"**: Reduce `max_chunk_size` in configuration
+1. **"Embedding API error"**: Check API keys and rate limits
+1. **"PDF extraction failed"**: Try a different parser or check PDF quality
+1. **"Token count exceeded"**: Reduce `max_chunk_size` in configuration
 
 ### Debug Mode
 
@@ -381,5 +369,6 @@ logging.basicConfig(level=logging.DEBUG)
 ## Support
 
 For issues and questions:
+
 - GitHub Issues: https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/issues
 - Documentation: See README.md

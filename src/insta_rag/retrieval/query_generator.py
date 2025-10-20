@@ -3,7 +3,7 @@
 import json
 from typing import Dict
 
-from ..exceptions import QueryGenerationError
+from ..utils.exceptions import QueryGenerationError
 
 
 class HyDEQueryGenerator:
