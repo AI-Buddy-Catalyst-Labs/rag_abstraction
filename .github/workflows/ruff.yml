@@ -4,16 +4,14 @@
 # The workflow has the following steps:
 # 1. Checks out the code.
 # 2. Installs uv, the fast Python package installer.
-# 3. Sets up a Python environment using uv.
-# 4. Installs ruff using uv.
-# 5. Runs 'ruff check --fix' to find and automatically fix linting errors,
-#    capturing the command's output.
-# 6. Runs 'ruff check' again. If any errors remain that cannot be fixed,
-#    the workflow will fail at this step.
-# 7. If linting was successful, it commits any auto-fixed files. The commit
+# 3. Sets up a Python environment and installs ruff using uv.
+# 4. Runs 'ruff check --fix' to find and automatically fix linting errors,
+#    capturing the command's output. This step will fail if there are any
+#    errors that ruff cannot fix automatically.
+# 5. If linting was successful, it commits any auto-fixed files. The commit
 #    message will include the output from the initial ruff run.
-# 8. Runs 'ruff format' to ensure consistent code formatting.
-# 9. Commits any files that were changed by the formatter.
+# 6. Runs 'ruff format' to ensure consistent code formatting.
+# 7. Commits any files that were changed by the formatter.
 
 name: Lint, Format and Commit
 
@@ -33,6 +31,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          # This is required to allow the git-auto-commit-action to push changes
+          ref: ${{ github.head_ref }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -45,26 +46,27 @@ jobs:
       - name: Run ruff to check, autofix, and capture output
         id: ruff-check
         run: |
-          # Run ruff and capture its output. We use `|| true` because ruff exits with a
-          # non-zero status code if it finds issues, even if they're all fixed.
-          # We'll run a second check later to fail the build on any remaining unfixable errors.
-          RUFF_OUTPUT=$(ruff check . --fix --show-fixes 2>&1 || true)
+          # Run ruff, redirecting all output to a file. Then capture the exit code.
+          # This ensures we can pass the output to the commit message even if the step fails.
+          ruff check . --fix --show-fixes > ruff_output.txt 2>&1
+          RUFF_EXIT_CODE=$?
 
-          # Expose the output to subsequent steps
+          # Pass the output to subsequent steps regardless of the exit code.
+          RUFF_OUTPUT=$(cat ruff_output.txt)
           echo "ruff_output<<EOF" >> "$GITHUB_OUTPUT"
           echo "$RUFF_OUTPUT" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Check for remaining linting issues
-        # This step ensures the workflow fails if the previous step couldn't fix all errors.
-        run: ruff check .
+          # Exit with ruff's original exit code.
+          # The step will succeed if ruff fixed all errors, and fail if unfixable errors remain.
+          exit $RUFF_EXIT_CODE
 
       - name: Commit linting fixes
         # This step only runs if the previous 'ruff check' step succeeds.
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: |
-            fix: fix linting issues with ruff
+            style: fix linting issues with ruff
 
             ${{ steps.ruff-check.outputs.ruff_output }}
           file_pattern: "*.py"
