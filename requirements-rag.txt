@@ -1,0 +1,29 @@
+# Core Dependencies for insta_rag Library
+
+# OpenAI API (for embeddings and LLM)
+openai>=1.12.0
+
+# Vector Database
+qdrant-client>=1.7.0
+
+# MongoDB (for content storage)
+pymongo>=4.6.0
+
+# PDF Processing
+pdfplumber>=0.10.3
+PyPDF2>=3.0.1
+
+# Text Processing and Tokenization
+tiktoken>=0.5.2
+
+# Numerical Computing (for semantic chunking)
+numpy>=1.24.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Optional: Cohere (for reranking - future feature)
+cohere>=4.47.0
+
+# Data Validation (optional but recommended)
+pydantic>=2.5.0
