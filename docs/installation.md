@@ -130,7 +130,9 @@ pip install --upgrade pdfplumber PyPDF2
 ### Qdrant Connection Issues
 
 1. Verify your `QDRANT_URL` and `QDRANT_API_KEY` in `.env`
+
 1. Test connection:
+
    ```python
    from qdrant_client import QdrantClient
 
@@ -181,4 +183,4 @@ If you encounter any installation issues:
 1. Check that Python version is 3.9+: `python --version`
 1. Ensure pip is up to date: `pip install --upgrade pip`
 1. Try installing in a fresh virtual environment
-1. Check the GitHub Issues: https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/issues
+1. Check the GitHub Issues: <https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/issues>

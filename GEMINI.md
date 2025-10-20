@@ -1,87 +1,105 @@
-# Gemini Code Assistant Context
-
-This document provides context for the `insta_rag` project, a Python-based Retrieval-Augmented Generation (RAG) library.
+# Gemini Context: insta_rag Project
 
 ## Project Overview
 
-`insta_rag` is a modular and extensible library for building RAG pipelines. It abstracts the complexity of document processing, chunking, embedding, and retrieval into a simple-to-use client. The library is designed with a plug-and-play architecture, allowing developers to easily swap components like embedding models, vector databases, and rerankers.
+This project, `insta_rag`, is a modular and extensible Python library designed for building Retrieval-Augmented Generation (RAG) pipelines. It abstracts the complexity of RAG into three primary operations: adding, updating, and retrieving documents.
 
-### Key Technologies
+**Key Technologies & Architecture:**
 
--   **Programming Language:** Python 3.9+
--   **Core Dependencies:**
-    -   `openai`: For generating embeddings and powering HyDE (Hypothetical Document Embeddings).
-    -   `qdrant-client`: For vector storage and search.
-    -   `cohere`: For reranking search results.
-    -   `pdfplumber` & `PyPDF2`: For PDF text extraction.
-    -   `pymongo`: For metadata storage.
-    -   `fastapi`: For the testing and example API.
--   **Architecture:**
-    -   **Modular:** The library is divided into distinct modules for chunking, embedding, vector database interaction, and retrieval.
-    -   **Interface-Based:** Core components are built around abstract base classes, making it easy to add new implementations.
-    -   **Configuration-Driven:** A central `RAGConfig` object controls the behavior of the entire library.
+- **Core Client:** The main entry point is the `RAGClient`, which orchestrates all operations.
+- **Embeddings & LLMs:** Utilizes OpenAI (`text-embedding-3-large`, GPT-4) or Azure OpenAI for generating embeddings and hypothetical answers (HyDE).
+- **Vector Database:** Uses Qdrant for efficient vector storage and search.
+- **Reranking:** Integrates Cohere for cross-encoder reranking to improve the relevance of search results.
+- **Architecture:** The library is built on an interface-based design, allowing for plug-and-play components. Core modules for `chunking`, `embedding`, `vectordb`, and `retrieval` each have a `base.py` defining an abstract interface, making it easy to extend with new implementations (e.g., adding Pinecone as a vector DB).
+- **Data Models:** Pydantic is used for robust data validation and clear data structures for documents, chunks, and API responses.
+
+The primary goal is to provide a complete, configuration-driven RAG system that is both easy to use and easy to extend.
+
+## Documentation
+
+The project documentation has been reorganized for clarity and is located in the `/docs` directory.
+
+- **[README.md](./docs/README.md):** Main landing page with links to all other documents.
+- **[installation.md](./docs/installation.md):** Detailed installation instructions.
+- **[quickstart.md](./docs/quickstart.md):** A hands-on guide to get started quickly.
+- **Guides (`/docs/guides`):**
+  - **[document-management.md](./docs/guides/document-management.md):** Covers adding, updating, and deleting documents.
+  - **[retrieval.md](./docs/guides/retrieval.md):** Explains the advanced hybrid retrieval pipeline.
+  - **[storage-backends.md](./docs/guides/storage-backends.md):** Details on configuring Qdrant-only vs. hybrid Qdrant+MongoDB storage.
+  - **[local-development.md](./docs/guides/local-development.md):** Instructions for setting up a local Qdrant instance.
 
 ## Building and Running
 
-### Installation
+### 1. Installation
 
-1.  **Install Python:** Ensure you have Python 3.9 or higher installed.
-2.  **Install Dependencies:** It is recommended to use a virtual environment.
+The project uses `uv` for package management.
 
-    ```bash
-    python -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    pip install -e .
-    ```
+```bash
+# Install the package in editable mode with all dependencies
+uv pip install -e .
+```
 
-### Running the Testing API
+Alternatively, using `pip` and a virtual environment:
 
-The project includes a FastAPI-based testing API in the `testing_api` directory. This is the best way to test the library's functionality.
+```bash
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
 
-1.  **Set up Environment Variables:** Create a `.env` file in the root of the project with the following variables:
+# Install in editable mode
+pip install -e .
+```
 
-    ```env
-    QDRANT_URL="your_qdrant_url"
-    QDRANT_API_KEY="your_qdrant_api_key"
-    AZURE_OPENAI_ENDPOINT="your_azure_openai_endpoint"
-    AZURE_OPENAI_API_KEY="your_azure_openai_api_key"
-    AZURE_EMBEDDING_DEPLOYMENT="text-embedding-3-large"
-    ```
+### 2. Environment Setup
 
-2.  **Run the API:**
+The client is configured via a `.env` file. Create one in the project root with the variables listed in `docs/installation.md`.
 
-    ```bash
-    cd testing_api
-    python main.py
-    ```
+### 3. Running the Example
 
-    The API will be available at `http://localhost:8000`. You can access the Swagger UI for interactive documentation at `http://localhost:8000/docs`.
+The `examples/basic_usage.py` script demonstrates the core functionality of the library.
+
+```bash
+# Run the basic usage example
+python examples/basic_usage.py
+```
+
+### 4. Running Tests
+
+The project contains a `tests/` directory. Tests can be run using `pytest`.
+
+```bash
+# TODO: Verify if this is the correct test command.
+pytest
+```
 
 ## Development Conventions
 
-### Code Style
+This project has a strong focus on code quality and consistency, enforced by several tools.
 
--   The project uses `ruff` for linting and formatting. The configuration is in `pyproject.toml`.
--   **Line Length:** 88 characters.
--   **Quotes:** Double quotes (`"`).
--   **Indentation:** 4 spaces.
+### 1. Linting and Formatting
 
-### Testing
+- **Tool:** `Ruff` is used for both linting and formatting.
 
--   The `testing_api` directory contains a comprehensive suite of endpoints for testing all components of the `insta_rag` library.
--   To run the tests, start the testing API and use a tool like `curl` or the Swagger UI to send requests to the various endpoints.
+- **Usage:**
 
-### Commits
+  ```bash
+  # Check for linting errors and auto-fix them
+  ruff check . --fix
 
--   The project uses [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
--   `commitizen` is used to format commit messages.
+  # Format the codebase
+  ruff format .
+  ```
 
-### Key Files
+### 2. Pre-commit Hooks
 
--   `src/insta_rag/core/client.py`: The main entry point for the RAG library.
--   `src/insta_rag/core/config.py`: Defines the configuration for the RAG client.
--   `src/insta_rag/retrieval/reranker.py`: Implements reranking logic.
--   `testing_api/main.py`: The FastAPI application for testing the library.
--   `README.md`: Provides a detailed overview of the library's architecture and usage.
--   `pyproject.toml`: Defines project dependencies and tool configurations.
+- **Framework:** `pre-commit` is used to run checks before each commit.
+
+- **Setup:** First-time contributors must install the hooks:
+
+  ```bash
+  pre-commit install
+  ```
+
+### 3. Commit Messages
+
+- **Standard:** The project follows the **Conventional Commits** specification, enforced by `commitizen`.
