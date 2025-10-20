@@ -1,5 +1,5 @@
 # This GitHub Action workflow lints and formats Python code using Ruff.
-# It runs on every pull request.
+# It runs on every pull request that modifies Python files.
 #
 # The workflow has the following steps:
 # 1. Checks out the code.
@@ -17,6 +17,8 @@ name: Lint, Format and Commit
 
 on:
   pull_request:
+    paths:
+      - '**.py'
 
 jobs:
   lint-and-format:
