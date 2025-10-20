@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from ..exceptions import ConfigurationError
+from ..utils.exceptions import ConfigurationError
 
 
 @dataclass
@@ -87,9 +87,13 @@ class RerankingConfig:
 
         if self.fallback_enabled:
             if not self.fallback_endpoint:
-                raise ConfigurationError("LLM fallback endpoint is required when fallback is enabled")
+                raise ConfigurationError(
+                    "LLM fallback endpoint is required when fallback is enabled"
+                )
             if not self.fallback_api_key:
-                raise ConfigurationError("LLM fallback API key is required when fallback is enabled")
+                raise ConfigurationError(
+                    "LLM fallback API key is required when fallback is enabled"
+                )
 
 
 @dataclass
@@ -163,7 +167,9 @@ class RetrievalConfig:
     final_top_k: int = 20
     distance_metric: str = "cosine"  # cosine, euclidean, dot_product
     score_threshold: Optional[float] = None
-    store_chunk_text_in_qdrant: bool = False  # NEW: Store chunk text in Qdrant (default: store in external DB)
+    store_chunk_text_in_qdrant: bool = (
+        False  # NEW: Store chunk text in Qdrant (default: store in external DB)
+    )
 
     def validate(self) -> None:
         """Validate retrieval configuration."""
@@ -235,7 +241,9 @@ class RAGConfig:
                 api_key=azure_key,
                 api_base=azure_endpoint,
                 api_version="2024-02-01",
-                deployment_name=os.getenv("AZURE_EMBEDDING_DEPLOYMENT", "text-embedding-3-large"),
+                deployment_name=os.getenv(
+                    "AZURE_EMBEDDING_DEPLOYMENT", "text-embedding-3-large"
+                ),
             )
 
             llm_config = LLMConfig(
@@ -269,7 +277,9 @@ class RAGConfig:
         gpt_oss_endpoint = os.getenv("GPT_OSS_ENDPOINT")
         gpt_oss_api_key = os.getenv("GPT_OSS_API_KEY")
         gpt_oss_model = os.getenv("GPT_OSS_MODEL", "gpt-oss-120b")
-        gpt_oss_fallback_enabled = os.getenv("GPT_OSS_FALLBACK_ENABLED", "false").lower() == "true"
+        gpt_oss_fallback_enabled = (
+            os.getenv("GPT_OSS_FALLBACK_ENABLED", "false").lower() == "true"
+        )
 
         if bge_api_key:
             # Use BGE reranker if API key is available
@@ -277,7 +287,9 @@ class RAGConfig:
                 provider="bge",
                 model="BAAI/bge-reranker-v2-m3",
                 api_key=bge_api_key,
-                api_url=os.getenv("BGE_RERANKER_URL", "http://118.67.212.45:8000/rerank"),
+                api_url=os.getenv(
+                    "BGE_RERANKER_URL", "http://118.67.212.45:8000/rerank"
+                ),
                 enabled=True,
                 normalize=False,
                 fallback_enabled=gpt_oss_fallback_enabled,

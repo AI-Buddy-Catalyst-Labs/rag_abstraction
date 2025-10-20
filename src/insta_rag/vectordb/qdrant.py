@@ -3,7 +3,7 @@
 import uuid
 from typing import Any, Dict, List, Optional
 
-from ..exceptions import CollectionNotFoundError, VectorDBError
+from ..utils.exceptions import CollectionNotFoundError, VectorDBError
 from .base import BaseVectorDB, VectorSearchResult
 
 

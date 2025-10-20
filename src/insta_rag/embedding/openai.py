@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from ..exceptions import EmbeddingError
+from ..utils.exceptions import EmbeddingError
 from .base import BaseEmbedder
 
 

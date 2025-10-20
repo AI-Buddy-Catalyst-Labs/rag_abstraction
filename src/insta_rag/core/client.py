@@ -2,15 +2,18 @@
 
 import time
 import uuid
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..chunking.semantic import SemanticChunker
 from ..embedding.openai import OpenAIEmbedder
-from ..exceptions import ConfigurationError, ValidationError, VectorDBError
+from ..utils.exceptions import ValidationError, VectorDBError
 from ..models.document import DocumentInput, SourceType
-from ..models.response import AddDocumentsResponse, ProcessingStats, UpdateDocumentsResponse
-from ..pdf_processing import extract_text_from_pdf
+from ..models.response import (
+    AddDocumentsResponse,
+    ProcessingStats,
+    UpdateDocumentsResponse,
+)
+from ..utils.pdf_processing import extract_text_from_pdf
 from ..vectordb.qdrant import QdrantVectorDB
 from .config import RAGConfig
 
@@ -206,7 +209,9 @@ class RAGClient:
             # Calculate total time
             stats.total_time_ms = (time.time() - start_time) * 1000
 
-            print(f"Successfully processed {len(extracted_texts)} documents into {len(all_chunks)} chunks")
+            print(
+                f"Successfully processed {len(extracted_texts)} documents into {len(all_chunks)} chunks"
+            )
             print(f"Total time: {stats.total_time_ms:.2f}ms")
 
             return AddDocumentsResponse(
@@ -320,7 +325,7 @@ class RAGClient:
             NoDocumentsFoundError: No documents match criteria (for delete/replace)
             VectorDBError: Qdrant operation failures
         """
-        from ..exceptions import CollectionNotFoundError, NoDocumentsFoundError
+        from ..utils.exceptions import CollectionNotFoundError, NoDocumentsFoundError
 
         start_time = time.time()
         errors = []
@@ -366,9 +371,9 @@ class RAGClient:
                     "When reprocess_chunks=False, metadata_updates must be provided"
                 )
 
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"UPDATE OPERATION: {update_strategy.upper()}")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             print(f"Collection: {collection_name}")
             if filters:
                 print(f"Filters: {filters}")
@@ -381,14 +386,16 @@ class RAGClient:
 
             if update_strategy == "delete":
                 # DELETE STRATEGY: Remove documents
-                print(f"\nExecuting DELETE strategy...")
+                print("\nExecuting DELETE strategy...")
 
                 # Determine document IDs to delete
                 if document_ids:
                     updated_document_ids = document_ids
                 else:
                     # Get document IDs using filters
-                    updated_document_ids = self.vectordb.get_document_ids(collection_name, filters)
+                    updated_document_ids = self.vectordb.get_document_ids(
+                        collection_name, filters
+                    )
 
                 if not updated_document_ids:
                     raise NoDocumentsFoundError(
@@ -407,7 +414,7 @@ class RAGClient:
 
             elif update_strategy == "append":
                 # APPEND STRATEGY: Just add new documents
-                print(f"\nExecuting APPEND strategy...")
+                print("\nExecuting APPEND strategy...")
                 print(f"Adding {len(new_documents)} new document(s)...")
 
                 # Use existing add_documents pipeline
@@ -419,27 +426,34 @@ class RAGClient:
 
                 if not add_response.success:
                     errors.extend(add_response.errors)
-                    raise VectorDBError(f"Failed to add documents: {add_response.errors}")
+                    raise VectorDBError(
+                        f"Failed to add documents: {add_response.errors}"
+                    )
 
                 chunks_added = add_response.total_chunks
-                all_chunks.extend(add_response.chunks)  # NEW: Store chunks for external storage
+                all_chunks.extend(
+                    add_response.chunks
+                )  # NEW: Store chunks for external storage
                 updated_document_ids = [
-                    chunk.metadata.document_id
-                    for chunk in add_response.chunks
+                    chunk.metadata.document_id for chunk in add_response.chunks
                 ]
                 updated_document_ids = list(set(updated_document_ids))  # Unique IDs
 
-                print(f"✓ Added {chunks_added} new chunks from {len(updated_document_ids)} document(s)")
+                print(
+                    f"✓ Added {chunks_added} new chunks from {len(updated_document_ids)} document(s)"
+                )
 
             elif update_strategy == "replace":
                 # REPLACE STRATEGY: Delete existing + add new
-                print(f"\nExecuting REPLACE strategy...")
+                print("\nExecuting REPLACE strategy...")
 
                 # Step 1: Determine documents to replace
                 if document_ids:
                     docs_to_replace = document_ids
                 else:
-                    docs_to_replace = self.vectordb.get_document_ids(collection_name, filters)
+                    docs_to_replace = self.vectordb.get_document_ids(
+                        collection_name, filters
+                    )
 
                 if not docs_to_replace:
                     raise NoDocumentsFoundError(
@@ -466,21 +480,26 @@ class RAGClient:
 
                 if not add_response.success:
                     errors.extend(add_response.errors)
-                    raise VectorDBError(f"Failed to add replacement documents: {add_response.errors}")
+                    raise VectorDBError(
+                        f"Failed to add replacement documents: {add_response.errors}"
+                    )
 
                 chunks_added = add_response.total_chunks
-                all_chunks.extend(add_response.chunks)  # NEW: Store chunks for external storage
+                all_chunks.extend(
+                    add_response.chunks
+                )  # NEW: Store chunks for external storage
                 updated_document_ids = [
-                    chunk.metadata.document_id
-                    for chunk in add_response.chunks
+                    chunk.metadata.document_id for chunk in add_response.chunks
                 ]
                 updated_document_ids = list(set(updated_document_ids))
 
-                print(f"✓ Added {chunks_added} new chunks from {len(updated_document_ids)} document(s)")
+                print(
+                    f"✓ Added {chunks_added} new chunks from {len(updated_document_ids)} document(s)"
+                )
 
             elif update_strategy == "upsert":
                 # UPSERT STRATEGY: Update if exists, insert if not
-                print(f"\nExecuting UPSERT strategy...")
+                print("\nExecuting UPSERT strategy...")
                 print(f"Processing {len(new_documents)} document(s) for upsert...")
 
                 docs_to_insert = []
@@ -530,11 +549,15 @@ class RAGClient:
                     )
                     if update_response.success:
                         chunks_updated += update_response.total_chunks
-                        all_chunks.extend(update_response.chunks)  # NEW: Store chunks for external storage
-                        updated_document_ids.extend([
-                            chunk.metadata.document_id
-                            for chunk in update_response.chunks
-                        ])
+                        all_chunks.extend(
+                            update_response.chunks
+                        )  # NEW: Store chunks for external storage
+                        updated_document_ids.extend(
+                            [
+                                chunk.metadata.document_id
+                                for chunk in update_response.chunks
+                            ]
+                        )
                     else:
                         errors.extend(update_response.errors)
 
@@ -547,11 +570,15 @@ class RAGClient:
                     )
                     if insert_response.success:
                         chunks_added += insert_response.total_chunks
-                        all_chunks.extend(insert_response.chunks)  # NEW: Store chunks for external storage
-                        updated_document_ids.extend([
-                            chunk.metadata.document_id
-                            for chunk in insert_response.chunks
-                        ])
+                        all_chunks.extend(
+                            insert_response.chunks
+                        )  # NEW: Store chunks for external storage
+                        updated_document_ids.extend(
+                            [
+                                chunk.metadata.document_id
+                                for chunk in insert_response.chunks
+                            ]
+                        )
                     else:
                         errors.extend(insert_response.errors)
 
@@ -562,7 +589,7 @@ class RAGClient:
 
             # Handle metadata-only updates (when reprocess_chunks=False)
             if not reprocess_chunks and metadata_updates:
-                print(f"\nPerforming metadata-only update...")
+                print("\nPerforming metadata-only update...")
 
                 # Update metadata without reprocessing content
                 if document_ids:
@@ -590,16 +617,16 @@ class RAGClient:
             total_time = (time.time() - start_time) * 1000
 
             # Print summary
-            print(f"\n{'='*60}")
-            print(f"UPDATE COMPLETE")
-            print(f"{'='*60}")
+            print(f"\n{'=' * 60}")
+            print("UPDATE COMPLETE")
+            print(f"{'=' * 60}")
             print(f"Strategy: {update_strategy}")
             print(f"Chunks deleted: {chunks_deleted}")
             print(f"Chunks added: {chunks_added}")
             print(f"Chunks updated: {chunks_updated}")
             print(f"Documents affected: {len(updated_document_ids)}")
             print(f"Total time: {total_time:.2f}ms")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
             return UpdateDocumentsResponse(
                 success=True,
@@ -613,7 +640,7 @@ class RAGClient:
                 errors=errors,
             )
 
-        except (ValidationError, CollectionNotFoundError, NoDocumentsFoundError) as e:
+        except (ValidationError, CollectionNotFoundError, NoDocumentsFoundError):
             # Expected errors - re-raise
             raise
 
@@ -796,13 +823,18 @@ class RAGClient:
             >>> response = client.retrieve(
             ...     query="What is semantic chunking?",
             ...     collection_name="knowledge_base",
-            ...     top_k=10
+            ...     top_k=10,
             ... )
             >>> for chunk in response.chunks:
             ...     print(f"Score: {chunk.relevance_score:.4f}")
             ...     print(f"Content: {chunk.content[:100]}...")
         """
-        from ..models.response import RetrievalResponse, RetrievedChunk, RetrievalStats, SourceInfo
+        from ..models.response import (
+            RetrievalResponse,
+            RetrievedChunk,
+            RetrievalStats,
+            SourceInfo,
+        )
         from collections import defaultdict
 
         start_time = time.time()
@@ -846,21 +878,25 @@ class RAGClient:
             if enable_hyde:
                 print(f"   Standard Query: {standard_query}")
                 if hyde_query and hyde_query != standard_query:
-                    print(f"   HyDE Query: {hyde_query[:200]}{'...' if len(hyde_query) > 200 else ''}")
+                    print(
+                        f"   HyDE Query: {hyde_query[:200]}{'...' if len(hyde_query) > 200 else ''}"
+                    )
                 else:
-                    print(f"   HyDE Query: (same as original - generation may have failed)")
+                    print(
+                        "   HyDE Query: (same as original - generation may have failed)"
+                    )
             else:
-                print(f"   HyDE: Disabled")
+                print("   HyDE: Disabled")
 
             # ===================================================================
             # STEP 2: DUAL VECTOR SEARCH (Phase 2: Standard + HyDE)
             # ===================================================================
-            print(f"\n🔍 Vector Search:")
+            print("\n🔍 Vector Search:")
             vector_search_start = time.time()
             all_vector_results = []
 
             # Search 1: Standard query (25 chunks)
-            print(f"   Search 1: Standard query → ", end="")
+            print("   Search 1: Standard query → ", end="")
             embedding_1 = self.embedder.embed_query(standard_query)
             results_1 = self.vectordb.search(
                 collection_name=collection_name,
@@ -873,7 +909,7 @@ class RAGClient:
 
             # Search 2: HyDE query (25 chunks) if enabled
             if enable_hyde and hyde_query and hyde_query != standard_query:
-                print(f"   Search 2: HyDE query → ", end="")
+                print("   Search 2: HyDE query → ", end="")
                 embedding_2 = self.embedder.embed_query(hyde_query)
                 results_2 = self.vectordb.search(
                     collection_name=collection_name,
@@ -886,14 +922,16 @@ class RAGClient:
 
             stats.vector_search_time_ms = (time.time() - vector_search_start) * 1000
             stats.vector_search_chunks = len(all_vector_results)
-            print(f"   ✓ Total vector results: {len(all_vector_results)} chunks ({stats.vector_search_time_ms:.2f}ms)")
+            print(
+                f"   ✓ Total vector results: {len(all_vector_results)} chunks ({stats.vector_search_time_ms:.2f}ms)"
+            )
 
             # ===================================================================
             # STEP 3: KEYWORD SEARCH (Phase 2: BM25)
             # ===================================================================
             keyword_results = []
             if enable_keyword_search:
-                print(f"\n🔎 Keyword Search (BM25):")
+                print("\n🔎 Keyword Search (BM25):")
                 print(f"   Using query: {query}")
                 keyword_search_start = time.time()
 
@@ -925,21 +963,23 @@ class RAGClient:
                         time.time() - keyword_search_start
                     ) * 1000
                     stats.keyword_search_chunks = len(keyword_results)
-                    print(f"   ✓ BM25 results: {len(keyword_results)} chunks ({stats.keyword_search_time_ms:.2f}ms)")
+                    print(
+                        f"   ✓ BM25 results: {len(keyword_results)} chunks ({stats.keyword_search_time_ms:.2f}ms)"
+                    )
 
                 except Exception as e:
                     print(f"   ⚠️ Warning: BM25 search failed: {e}")
                     stats.keyword_search_time_ms = 0.0
                     stats.keyword_search_chunks = 0
             else:
-                print(f"\n🔎 Keyword Search: Disabled")
+                print("\n🔎 Keyword Search: Disabled")
                 stats.keyword_search_chunks = 0
                 stats.keyword_search_time_ms = 0.0
 
             # ===================================================================
             # STEP 4: COMBINE & DEDUPLICATE (Vector + Keyword results)
             # ===================================================================
-            print(f"\n🔀 Combining & Deduplicating:")
+            print("\n🔀 Combining & Deduplicating:")
             all_chunks = all_vector_results + keyword_results
             stats.total_chunks_retrieved = len(all_chunks)
             print(f"   Combined: {len(all_chunks)} total chunks")
@@ -949,25 +989,30 @@ class RAGClient:
                 chunk_dict = {}
                 for chunk in all_chunks:
                     chunk_id = chunk.chunk_id
-                    if chunk_id not in chunk_dict or chunk.score > chunk_dict[chunk_id].score:
+                    if (
+                        chunk_id not in chunk_dict
+                        or chunk.score > chunk_dict[chunk_id].score
+                    ):
                         chunk_dict[chunk_id] = chunk
                 unique_chunks = list(chunk_dict.values())
                 print(f"   After deduplication: {len(unique_chunks)} unique chunks")
             else:
                 unique_chunks = all_chunks
-                print(f"   Deduplication: Disabled")
+                print("   Deduplication: Disabled")
 
             stats.chunks_after_dedup = len(unique_chunks)
 
             # ===================================================================
             # STEP 5: RERANKING (Phase 4 - BGE Reranking with LLM Fallback)
             # ===================================================================
-            print(f"\n🎯 Reranking:")
+            print("\n🎯 Reranking:")
             reranking_start = time.time()
 
             if enable_reranking and self.config.reranking.enabled:
                 try:
-                    print(f"   Reranking {len(unique_chunks)} chunks using {self.config.reranking.provider}...")
+                    print(
+                        f"   Reranking {len(unique_chunks)} chunks using {self.config.reranking.provider}..."
+                    )
 
                     # Initialize reranker
                     if self.config.reranking.provider == "bge":
@@ -987,7 +1032,9 @@ class RAGClient:
                             model=self.config.reranking.model,
                         )
                     else:
-                        raise ValueError(f"Unknown reranker provider: {self.config.reranking.provider}")
+                        raise ValueError(
+                            f"Unknown reranker provider: {self.config.reranking.provider}"
+                        )
 
                     # Prepare chunks for reranking: list of (content, metadata) tuples
                     chunks_for_reranking = [
@@ -998,7 +1045,7 @@ class RAGClient:
                     reranked_results = reranker.rerank(
                         query=query,
                         chunks=chunks_for_reranking,
-                        top_k=min(self.config.reranking.top_k, len(unique_chunks))
+                        top_k=min(self.config.reranking.top_k, len(unique_chunks)),
                     )
 
                     # Apply reranking scores and reorder chunks
@@ -1010,16 +1057,28 @@ class RAGClient:
                         ranked_chunks.append(chunk)
 
                     stats.reranking_time_ms = (time.time() - reranking_start) * 1000
-                    print(f"   ✓ Reranked to {len(ranked_chunks)} chunks ({stats.reranking_time_ms:.2f}ms)")
-                    print(f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}")
+                    print(
+                        f"   ✓ Reranked to {len(ranked_chunks)} chunks ({stats.reranking_time_ms:.2f}ms)"
+                    )
+                    print(
+                        f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}"
+                    )
 
                 except Exception as e:
-                    print(f"   ⚠️ Warning: {self.config.reranking.provider.upper()} reranking failed: {e}")
+                    print(
+                        f"   ⚠️ Warning: {self.config.reranking.provider.upper()} reranking failed: {e}"
+                    )
 
                     # Try LLM fallback if enabled
-                    if self.config.reranking.fallback_enabled and self.config.reranking.fallback_endpoint and self.config.reranking.fallback_api_key:
+                    if (
+                        self.config.reranking.fallback_enabled
+                        and self.config.reranking.fallback_endpoint
+                        and self.config.reranking.fallback_api_key
+                    ):
                         try:
-                            print(f"   🔄 Attempting LLM fallback using {self.config.reranking.fallback_model}...")
+                            print(
+                                f"   🔄 Attempting LLM fallback using {self.config.reranking.fallback_model}..."
+                            )
                             from ..retrieval.reranker import LLMReranker
 
                             llm_reranker = LLMReranker(
@@ -1031,16 +1090,21 @@ class RAGClient:
 
                             # Prepare chunks for reranking
                             chunks_for_reranking = [
-                                (chunk.content, chunk.metadata) for chunk in unique_chunks
+                                (chunk.content, chunk.metadata)
+                                for chunk in unique_chunks
                             ]
 
-                            print(f"   📤 Sending {len(chunks_for_reranking)} chunks to LLM reranker...")
+                            print(
+                                f"   📤 Sending {len(chunks_for_reranking)} chunks to LLM reranker..."
+                            )
 
                             # Rerank using LLM
                             reranked_results = llm_reranker.rerank(
                                 query=query,
                                 chunks=chunks_for_reranking,
-                                top_k=min(self.config.reranking.top_k, len(unique_chunks))
+                                top_k=min(
+                                    self.config.reranking.top_k, len(unique_chunks)
+                                ),
                             )
 
                             # Apply reranking scores and reorder chunks
@@ -1050,32 +1114,50 @@ class RAGClient:
                                 chunk.score = rerank_score
                                 ranked_chunks.append(chunk)
 
-                            stats.reranking_time_ms = (time.time() - reranking_start) * 1000
-                            print(f"   ✅ LLM fallback successful! Reranked to {len(ranked_chunks)} chunks ({stats.reranking_time_ms:.2f}ms)")
-                            print(f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}")
+                            stats.reranking_time_ms = (
+                                time.time() - reranking_start
+                            ) * 1000
+                            print(
+                                f"   ✅ LLM fallback successful! Reranked to {len(ranked_chunks)} chunks ({stats.reranking_time_ms:.2f}ms)"
+                            )
+                            print(
+                                f"   ✓ Score range: {ranked_chunks[-1].score:.4f} to {ranked_chunks[0].score:.4f}"
+                            )
 
                         except Exception as fallback_error:
-                            print(f"   ⚠️ Warning: LLM fallback also failed: {fallback_error}")
-                            print(f"   Falling back to vector score sorting...")
+                            print(
+                                f"   ⚠️ Warning: LLM fallback also failed: {fallback_error}"
+                            )
+                            print("   Falling back to vector score sorting...")
                             # Fallback to vector score sorting
-                            ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
-                            stats.reranking_time_ms = (time.time() - reranking_start) * 1000
+                            ranked_chunks = sorted(
+                                unique_chunks, key=lambda x: x.score, reverse=True
+                            )
+                            stats.reranking_time_ms = (
+                                time.time() - reranking_start
+                            ) * 1000
                     else:
-                        print(f"   LLM fallback not enabled or not configured")
-                        print(f"   Falling back to vector score sorting...")
+                        print("   LLM fallback not enabled or not configured")
+                        print("   Falling back to vector score sorting...")
                         # Fallback to vector score sorting
-                        ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+                        ranked_chunks = sorted(
+                            unique_chunks, key=lambda x: x.score, reverse=True
+                        )
                         stats.reranking_time_ms = (time.time() - reranking_start) * 1000
             else:
                 # Reranking disabled - sort by vector score
-                ranked_chunks = sorted(unique_chunks, key=lambda x: x.score, reverse=True)
+                ranked_chunks = sorted(
+                    unique_chunks, key=lambda x: x.score, reverse=True
+                )
                 stats.reranking_time_ms = 0.0
-                print(f"   Reranking: Disabled")
+                print("   Reranking: Disabled")
 
             # ===================================================================
             # STEP 6: SELECTION & FORMATTING
             # ===================================================================
-            print(f"   Step 6: Selecting top-{top_k} chunks from {len(ranked_chunks)} ranked chunks")
+            print(
+                f"   Step 6: Selecting top-{top_k} chunks from {len(ranked_chunks)} ranked chunks"
+            )
 
             # Select top_k chunks
             final_chunks = ranked_chunks[:top_k]
@@ -1085,7 +1167,9 @@ class RAGClient:
             if score_threshold is not None:
                 filtered_count = len(final_chunks)
                 final_chunks = [c for c in final_chunks if c.score >= score_threshold]
-                print(f"   After score threshold ({score_threshold}): {len(final_chunks)} chunks (filtered out: {filtered_count - len(final_chunks)})")
+                print(
+                    f"   After score threshold ({score_threshold}): {len(final_chunks)} chunks (filtered out: {filtered_count - len(final_chunks)})"
+                )
 
             stats.chunks_after_reranking = len(final_chunks)
             print(f"   ✓ Final chunks to return: {len(final_chunks)}")
@@ -1127,7 +1211,9 @@ class RAGClient:
                 SourceInfo(
                     source=source,
                     chunks_count=data["count"],
-                    avg_relevance=data["total_score"] / data["count"] if data["count"] > 0 else 0.0,
+                    avg_relevance=data["total_score"] / data["count"]
+                    if data["count"] > 0
+                    else 0.0,
                 )
                 for source, data in source_stats.items()
             ]
@@ -1136,23 +1222,26 @@ class RAGClient:
             stats.total_time_ms = (time.time() - start_time) * 1000
 
             # Print retrieval summary
-            print(f"\n{'='*60}")
-            print(f"✅ RETRIEVAL COMPLETE")
-            print(f"{'='*60}")
-            print(f"📊 Summary:")
+            print(f"\n{'=' * 60}")
+            print("✅ RETRIEVAL COMPLETE")
+            print(f"{'=' * 60}")
+            print("📊 Summary:")
             print(f"   Query: '{query}'")
             if enable_hyde and queries_generated.get("standard"):
-                print(f"   Searches performed:")
+                print("   Searches performed:")
                 print(f"     1. Standard query: '{queries_generated['standard']}'")
-                if queries_generated.get("hyde") and queries_generated["hyde"] != queries_generated["standard"]:
+                if (
+                    queries_generated.get("hyde")
+                    and queries_generated["hyde"] != queries_generated["standard"]
+                ):
                     print(f"     2. HyDE query: '{queries_generated['hyde'][:80]}...'")
                 if enable_keyword_search and stats.keyword_search_chunks > 0:
-                    print(f"     3. BM25 keyword search")
+                    print("     3. BM25 keyword search")
             print(f"   Total chunks retrieved: {stats.total_chunks_retrieved}")
             print(f"   After deduplication: {stats.chunks_after_dedup}")
             print(f"   Final results returned: {len(retrieved_chunks)}")
             print(f"   Total time: {stats.total_time_ms:.2f}ms")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
             return RetrievalResponse(
                 success=True,

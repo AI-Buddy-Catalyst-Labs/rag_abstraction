@@ -2,11 +2,11 @@
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 
-from ..exceptions import ChunkingError
+from ..utils.exceptions import ChunkingError
 from ..models.chunk import Chunk, ChunkMetadata
 from .base import BaseChunker
 from .utils import (
@@ -146,7 +146,9 @@ class SemanticChunker(BaseChunker):
             vec2 = np.array(embeddings[i + 1])
 
             # Cosine similarity
-            similarity = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+            similarity = np.dot(vec1, vec2) / (
+                np.linalg.norm(vec1) * np.linalg.norm(vec2)
+            )
             similarities.append(float(similarity))
 
         return similarities

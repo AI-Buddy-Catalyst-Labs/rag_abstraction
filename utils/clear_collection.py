@@ -55,12 +55,14 @@ try:
         print(f"✓ Collection '{COLLECTION_NAME}' deleted successfully")
 
         # Recreate collection with same settings
-        from qdrant_client.models import VectorParams, Distance
+        from qdrant_client.models import VectorParams
 
         vector_size = collection_info.config.params.vectors.size
         distance = collection_info.config.params.vectors.distance
 
-        print(f"\nRecreating collection with {vector_size} dimensions and {distance} distance metric...")
+        print(
+            f"\nRecreating collection with {vector_size} dimensions and {distance} distance metric..."
+        )
         client.create_collection(
             collection_name=COLLECTION_NAME,
             vectors_config=VectorParams(size=vector_size, distance=distance),
