@@ -19,7 +19,7 @@ The primary goal is to provide a complete, configuration-driven RAG system that 
 
 The project documentation has been reorganized for clarity and is located in the `/docs` directory.
 
-- **[index.md](./docs/index.md):** Main landing page with links to all other documents.
+- **[README.md](./docs/README.md):** Main landing page with links to all other documents.
 - **[installation.md](./docs/installation.md):** Detailed installation instructions.
 - **[quickstart.md](./docs/quickstart.md):** A hands-on guide to get started quickly.
 - **Guides (`/docs/guides`):**
@@ -79,7 +79,9 @@ This project has a strong focus on code quality and consistency, enforced by sev
 ### 1. Linting and Formatting
 
 - **Tool:** `Ruff` is used for both linting and formatting.
+
 - **Usage:**
+
   ```bash
   # Check for linting errors and auto-fix them
   ruff check . --fix
@@ -91,7 +93,9 @@ This project has a strong focus on code quality and consistency, enforced by sev
 ### 2. Pre-commit Hooks
 
 - **Framework:** `pre-commit` is used to run checks before each commit.
+
 - **Setup:** First-time contributors must install the hooks:
+
   ```bash
   pre-commit install
   ```

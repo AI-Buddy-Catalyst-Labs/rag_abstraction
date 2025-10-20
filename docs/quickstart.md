@@ -58,24 +58,26 @@ You can add documents from files (PDF, TXT) or raw text. The library handles tex
 from insta_rag import DocumentInput
 
 # Prepare documents from different sources
-documents = [
-    # From a PDF file
-    DocumentInput.from_file(
-        "path/to/your/document.pdf",
-        metadata={"user_id": "user_123", "document_type": "report"}
-    ),
-    # From a raw text string
-    DocumentInput.from_text(
-        "This is the content of a short document about insta_rag.",
-        metadata={"source": "manual", "author": "Gemini"}
-    ),
-],
+documents = (
+    [
+        # From a PDF file
+        DocumentInput.from_file(
+            "path/to/your/document.pdf",
+            metadata={"user_id": "user_123", "document_type": "report"},
+        ),
+        # From a raw text string
+        DocumentInput.from_text(
+            "This is the content of a short document about insta_rag.",
+            metadata={"source": "manual", "author": "Gemini"},
+        ),
+    ],
+)
 
 # Process and store the documents in a collection
 response = client.add_documents(
     documents=documents,
     collection_name="my_knowledge_base",
-    metadata={"project": "quickstart_demo"} # Global metadata for this batch
+    metadata={"project": "quickstart_demo"},  # Global metadata for this batch
 )
 
 # Review the results
@@ -98,9 +100,7 @@ By default, **HyDE query generation** and **BM25 keyword search** are enabled fo
 ```python
 # Perform a retrieval query
 response = client.retrieve(
-    query="What is semantic chunking?",
-    collection_name="my_knowledge_base",
-    top_k=5
+    query="What is semantic chunking?", collection_name="my_knowledge_base", top_k=5
 )
 
 # Print the results
@@ -109,16 +109,16 @@ if response.success:
     print(f"\nGenerated Queries: {response.queries_generated}")
 
     for i, chunk in enumerate(response.chunks):
-        print(f"\n--- Result {i+1} (Score: {chunk.relevance_score:.4f}) ---")
+        print(f"\n--- Result {i + 1} (Score: {chunk.relevance_score:.4f}) ---")
         print(f"Source: {chunk.metadata.source}")
         print(chunk.content)
 ```
 
 ### Understanding the Retrieval Response
 
-*   `response.chunks`: A list of the top `k` most relevant document chunks.
-*   `response.queries_generated`: Shows the original query, the optimized standard query, and the hypothetical answer (HyDE) used for searching.
-*   `response.retrieval_stats`: Provides a detailed performance breakdown, including timings for each stage and the number of chunks found by each method.
+- `response.chunks`: A list of the top `k` most relevant document chunks.
+- `response.queries_generated`: Shows the original query, the optimized standard query, and the hypothetical answer (HyDE) used for searching.
+- `response.retrieval_stats`: Provides a detailed performance breakdown, including timings for each stage and the number of chunks found by each method.
 
 ## 6. Controlling Retrieval Features
 
@@ -131,7 +131,7 @@ fast_response = client.retrieve(
     collection_name="my_knowledge_base",
     enable_hyde=False,
     enable_keyword_search=False,
-    enable_reranking=False # Assuming reranking is a future feature
+    enable_reranking=False,  # Assuming reranking is a future feature
 )
 
 # High-quality mode: Vector search + HyDE (no keyword search)
@@ -154,7 +154,7 @@ The library also supports updating and deleting documents.
 delete_response = client.update_documents(
     collection_name="my_knowledge_base",
     update_strategy="delete",
-    filters={"user_id": "user_123"}
+    filters={"user_id": "user_123"},
 )
 
 print(f"Deleted {delete_response.chunks_deleted} chunks.")

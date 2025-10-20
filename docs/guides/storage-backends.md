@@ -8,23 +8,23 @@
 
 In this mode, all data associated with a chunk is stored directly in the Qdrant vector database.
 
-*   **Architecture**: `Document → Chunking → Embedding → Qdrant (stores vectors, metadata, and full text content)`
-*   **Qdrant Payload**: Contains the vector embedding, all metadata, and the full `content` of the chunk.
-*   **Pros**: Simple to set up, requires only one database.
-*   **Cons**: Can be less cost-effective for very large text content, as vector databases are optimized and priced for vector search, not bulk text storage.
+- **Architecture**: `Document → Chunking → Embedding → Qdrant (stores vectors, metadata, and full text content)`
+- **Qdrant Payload**: Contains the vector embedding, all metadata, and the full `content` of the chunk.
+- **Pros**: Simple to set up, requires only one database.
+- **Cons**: Can be less cost-effective for very large text content, as vector databases are optimized and priced for vector search, not bulk text storage.
 
 ### 2. Hybrid Mode: Qdrant + MongoDB (Recommended for Production)
 
 In this mode, storage is split: Qdrant stores the vectors for fast searching, and MongoDB stores the actual text content.
 
-*   **Architecture**: `Document → Chunking → Embedding → MongoDB (stores full content) & Qdrant (stores vectors + a reference to MongoDB)`
-*   **Qdrant Payload**: Contains the vector embedding and metadata, but the `content` field is empty. Instead, it stores a `mongodb_id` pointing to the document in MongoDB.
-*   **MongoDB Document**: Contains the `chunk_id`, the full `content`, and a copy of the metadata.
-*   **Pros**:
-    *   **Cost-Effective**: Leverages MongoDB for cheaper, efficient bulk text storage.
-    *   **Separation of Concerns**: Qdrant handles what it does best (vector search), and MongoDB handles content storage.
-    *   **Flexibility**: Allows you to manage and update content in MongoDB without needing to re-index vectors in Qdrant.
-*   **Cons**: Requires managing a second database (MongoDB).
+- **Architecture**: `Document → Chunking → Embedding → MongoDB (stores full content) & Qdrant (stores vectors + a reference to MongoDB)`
+- **Qdrant Payload**: Contains the vector embedding and metadata, but the `content` field is empty. Instead, it stores a `mongodb_id` pointing to the document in MongoDB.
+- **MongoDB Document**: Contains the `chunk_id`, the full `content`, and a copy of the metadata.
+- **Pros**:
+  - **Cost-Effective**: Leverages MongoDB for cheaper, efficient bulk text storage.
+  - **Separation of Concerns**: Qdrant handles what it does best (vector search), and MongoDB handles content storage.
+  - **Flexibility**: Allows you to manage and update content in MongoDB without needing to re-index vectors in Qdrant.
+- **Cons**: Requires managing a second database (MongoDB).
 
 ## Configuration
 
@@ -64,15 +64,15 @@ QDRANT_API_KEY="..."
 
 The library handles the difference in storage transparently during retrieval:
 
-1.  A search query is sent to Qdrant.
-2.  Qdrant returns a list of matching vectors and their payloads.
-3.  The `RAGClient` inspects the payload of each result.
-4.  If a `mongodb_id` is present, it automatically fetches the full content from MongoDB.
-5.  If there is no `mongodb_id`, it uses the `content` directly from the Qdrant payload.
+1. A search query is sent to Qdrant.
+1. Qdrant returns a list of matching vectors and their payloads.
+1. The `RAGClient` inspects the payload of each result.
+1. If a `mongodb_id` is present, it automatically fetches the full content from MongoDB.
+1. If there is no `mongodb_id`, it uses the `content` directly from the Qdrant payload.
 
 The final `RetrievalResponse` will contain the full text content regardless of which storage backend was used.
 
 ## Best Practices
 
-*   For **local development and testing**, the **Qdrant-only** mode is often simpler and sufficient.
-*   For **production environments**, especially with a large volume of documents, the **Hybrid (Qdrant + MongoDB)** mode is highly recommended for its cost-effectiveness and scalability.
+- For **local development and testing**, the **Qdrant-only** mode is often simpler and sufficient.
+- For **production environments**, especially with a large volume of documents, the **Hybrid (Qdrant + MongoDB)** mode is highly recommended for its cost-effectiveness and scalability.

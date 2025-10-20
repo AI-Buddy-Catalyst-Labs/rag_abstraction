@@ -17,9 +17,9 @@ docker run -d -p 6333:6333 -p 6334:6334 \
   qdrant/qdrant
 ```
 
-*   `-p 6333:6333`: Maps the HTTP REST API port.
-*   `-p 6334:6334`: Maps the gRPC port.
-*   `-v $(pwd)/qdrant_storage:/qdrant/storage`: Persists data in a `qdrant_storage` directory in your current folder.
+- `-p 6333:6333`: Maps the HTTP REST API port.
+- `-p 6334:6334`: Maps the gRPC port.
+- `-v $(pwd)/qdrant_storage:/qdrant/storage`: Persists data in a `qdrant_storage` directory in your current folder.
 
 ### 2. Update Your `.env` File
 
@@ -54,7 +54,7 @@ You should see a response like: `{"result":{"collections":[]},"status":"ok","tim
 
 Qdrant provides a web dashboard to view your collections, search points, and monitor the instance. Access it at:
 
-**http://localhost:6333/dashboard**
+**<http://localhost:6333/dashboard>**
 
 ## Troubleshooting Connection Issues
 
@@ -76,20 +76,19 @@ For slow remote connections, you can increase the timeout directly in the client
 ```python
 # src/insta_rag/core/config.py
 
+
 @dataclass
 class VectorDBConfig:
     provider: str = "qdrant"
     url: Optional[str] = None
     api_key: Optional[str] = None
-    timeout: int = 120 # Increase timeout to 120 seconds
+    timeout: int = 120  # Increase timeout to 120 seconds
 ```
 
 ### 3. Use a Free Qdrant Cloud Instance
 
 If your self-hosted remote server is unreliable, consider using the free tier from [Qdrant Cloud](https://cloud.qdrant.io). It's a quick and easy way to get a stable remote vector database for development.
 
-1.  Sign up and create a free cluster.
-2.  Copy the URL and generate an API key.
-3.  Update your `.env` file with the new credentials.
-
-```
+1. Sign up and create a free cluster.
+1. Copy the URL and generate an API key.
+1. Update your `.env` file with the new credentials.
