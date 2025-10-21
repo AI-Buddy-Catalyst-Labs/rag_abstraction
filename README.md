@@ -61,7 +61,7 @@ Key sections include:
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+We welcome contributions! Please see our [Contributing Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/CONTRIBUTING.md) for details on:
 
 - Setting up your development environment
 - Code quality tools and pre-commit hooks
