@@ -1,6 +1,5 @@
 """Basic usage example for insta_rag library."""
 
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -93,7 +92,7 @@ def main():
         metadata={"project": "insta_rag_demo"},
     )
 
-    print(f"\n✓ Documents processed successfully!")
+    print("\n✓ Documents processed successfully!")
     print(f"  - Documents processed: {response.documents_processed}")
     print(f"  - Total chunks created: {response.total_chunks}")
     print(f"  - Total tokens: {response.processing_stats.total_tokens}")
@@ -103,12 +102,12 @@ def main():
     print(f"  - Total time: {response.processing_stats.total_time_ms:.2f}ms")
 
     if response.errors:
-        print(f"\n⚠ Errors encountered:")
+        print("\n⚠ Errors encountered:")
         for error in response.errors:
             print(f"  - {error}")
 
     # Display chunk information
-    print(f"\nChunk Details:")
+    print("\nChunk Details:")
     for i, chunk in enumerate(response.chunks[:3]):  # Show first 3 chunks
         print(f"\nChunk {i + 1}:")
         print(f"  - ID: {chunk.chunk_id}")

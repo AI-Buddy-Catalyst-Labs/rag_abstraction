@@ -14,7 +14,7 @@ Author: insta_rag team
 
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from ..models.response import (
     RetrievalResponse,
@@ -138,7 +138,7 @@ def retrieve(
         ...     collection_name="knowledge_base",
         ...     filters={"user_id": "user_123"},
         ...     top_k=10,
-        ...     enable_reranking=True
+        ...     enable_reranking=True,
         ... )
         >>> for chunk in response.chunks:
         ...     print(f"Score: {chunk.relevance_score:.4f}")
@@ -230,7 +230,10 @@ def retrieve(
             chunk_dict = {}
             for chunk in all_chunks:
                 chunk_id = chunk.chunk_id
-                if chunk_id not in chunk_dict or chunk.score > chunk_dict[chunk_id].score:
+                if (
+                    chunk_id not in chunk_dict
+                    or chunk.score > chunk_dict[chunk_id].score
+                ):
                     chunk_dict[chunk_id] = chunk
             unique_chunks = list(chunk_dict.values())
         else:

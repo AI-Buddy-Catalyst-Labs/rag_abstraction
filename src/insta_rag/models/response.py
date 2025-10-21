@@ -93,7 +93,9 @@ class UpdateDocumentsResponse:
     chunks_added: int = 0
     chunks_updated: int = 0
     updated_document_ids: List[str] = field(default_factory=list)
-    chunks: List[Chunk] = field(default_factory=list)  # NEW: For external storage (e.g., MongoDB)
+    chunks: List[Chunk] = field(
+        default_factory=list
+    )  # NEW: For external storage (e.g., MongoDB)
     errors: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:

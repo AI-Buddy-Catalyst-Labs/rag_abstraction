@@ -94,7 +94,7 @@ def split_into_sentences(text: str) -> List[str]:
     """
     # Use regex to split on sentence boundaries
     # This handles common cases but may not be perfect for all texts
-    sentence_endings = re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
+    sentence_endings = re.compile(r"(?<=[.!?])\s+(?=[A-Z])")
     sentences = sentence_endings.split(text)
 
     # Clean up sentences
@@ -113,7 +113,7 @@ def split_into_paragraphs(text: str) -> List[str]:
         List of paragraphs
     """
     # Split on double newlines
-    paragraphs = re.split(r'\n\s*\n', text)
+    paragraphs = re.split(r"\n\s*\n", text)
 
     # Clean up paragraphs
     paragraphs = [p.strip() for p in paragraphs if p.strip()]
@@ -156,7 +156,9 @@ def validate_chunk_quality(chunk: str) -> bool:
     return True
 
 
-def add_overlap_to_chunks(chunks: List[str], overlap_percentage: float = 0.2) -> List[str]:
+def add_overlap_to_chunks(
+    chunks: List[str], overlap_percentage: float = 0.2
+) -> List[str]:
     """Add overlap between consecutive chunks.
 
     Args:
