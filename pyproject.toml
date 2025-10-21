@@ -141,6 +141,10 @@ update_changelog_on_bump = true
 major_version_zero = true
 annotated_tag = true
 gpg_sign = true
+pre_bump_hooks = [
+    "uv lock",
+    "git add uv.lock",
+]
 
 [dependency-groups]
 dev = [
