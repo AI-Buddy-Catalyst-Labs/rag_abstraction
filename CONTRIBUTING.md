@@ -319,7 +319,7 @@ This project follows the [Conventional Commits](https://www.conventionalcommits.
 
 ### Commit Message Format
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -341,7 +341,7 @@ This project follows the [Conventional Commits](https://www.conventionalcommits.
 - **chore**: Other changes that don't modify src or test files
 - **revert**: Reverts a previous commit
 
-### Examples
+### Examples (Commit Messages)
 
 ```bash
 # Feature
@@ -383,7 +383,7 @@ This project follows the [Conventional Branch](https://conventional-branch.githu
 
 ### Branch Name Format
 
-```
+```text
 <type>/<description>
 ```
 
@@ -399,7 +399,7 @@ Use the same types as commits:
 - `chore/` - Maintenance tasks
 - `ci/` - CI/CD changes
 
-### Examples
+### Examples (Branch Naming)
 
 ```bash
 # Good branch names
