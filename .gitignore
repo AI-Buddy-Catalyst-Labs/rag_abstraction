@@ -287,3 +287,4 @@ $RECYCLE.BIN/
 
 # Test environment file
 .env.test
+testing_api/
