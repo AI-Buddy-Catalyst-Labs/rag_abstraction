@@ -1,11 +1,8 @@
 [project]
 name = "insta_rag"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 description = "A RAG (Retrieval-Augmented Generation) library for document processing and retrieval."
 authors = [
-    { name = "AI-Buddy-Catalyst-Labs", email = "chatbotgg1378@gmail.com" },
-]
-maintainers = [
     { name = "Aukik Aurnab", email = "aukikaurnabx@gmail.com" },
     { name = "Tahmidul Islam", email = "me@tahmidul612.com" },
     { name = "MD Ikramul Kayes", email = "ikramul.kayesgg@gmail.com" },
@@ -46,7 +43,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag"
-Documentation = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/README.md"
+Documentation = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki"
 "Bug Tracker" = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/issues"
 
 [build-system]
