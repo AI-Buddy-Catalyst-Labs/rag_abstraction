@@ -191,9 +191,11 @@ celerybeat.pid
 .venv
 env/
 venv/
+virtualenv/
 ENV/
 env.bak/
 venv.bak/
+virtualenv.bak/
 
 # Spyder project settings
 .spyderproject
@@ -282,3 +284,6 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,linux,macos,python,git
+
+# Test environment file
+.env.test
