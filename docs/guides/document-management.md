@@ -53,7 +53,7 @@ graph TD
 
 - **Action**: The chunks (embeddings and metadata) are uploaded to the specified Qdrant collection.
 - **ID Generation**: A deterministic UUID is generated for each chunk, ensuring that re-uploading the same chunk is an idempotent operation.
-- **Hybrid Storage**: If MongoDB is configured, the full text content is stored in MongoDB, while Qdrant stores only the vector and a reference ID to the MongoDB document. This is the recommended setup for production. See the [Storage Backends Guide](./storage-backends.md) for more details.
+- **Hybrid Storage**: If MongoDB is configured, the full text content is stored in MongoDB, while Qdrant stores only the vector and a reference ID to the MongoDB document. This is the recommended setup for production. See the [Storage Backends Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/storage-backends.md) for more details.
 
 ### Example: Adding a Document
 

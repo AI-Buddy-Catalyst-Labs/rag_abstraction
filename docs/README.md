@@ -6,12 +6,12 @@ This documentation provides a comprehensive guide to installing, using, and unde
 
 ## Where to Start
 
-- **[Installation](./installation.md):** Get the library installed in your environment.
-- **[Quickstart](./quickstart.md):** A hands-on guide to get you started with the core features in minutes.
+- **[Installation](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/installation.md):** Get the library installed in your environment.
+- **[Quickstart](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/quickstart.md):** A hands-on guide to get you started with the core features in minutes.
 
 ## In-Depth Guides
 
-- **[Document Management](./guides/document-management.md):** Learn how to add, update, and manage documents in your knowledge base.
-- **[Advanced Retrieval](./guides/retrieval.md):** A deep dive into the hybrid retrieval pipeline, including HyDE, keyword search, and reranking.
-- **[Storage Backends](./guides/storage-backends.md):** Understand how to configure storage, including the hybrid Qdrant and MongoDB setup.
-- **[Local Development](./guides/local-development.md):** Tips for setting up a local development environment, including running a local Qdrant instance.
+- **[Document Management](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/document-management.md):** Learn how to add, update, and manage documents in your knowledge base.
+- **[Advanced Retrieval](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/retrieval.md):** A deep dive into the hybrid retrieval pipeline, including HyDE, keyword search, and reranking.
+- **[Storage Backends](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/storage-backends.md):** Understand how to configure storage, including the hybrid Qdrant and MongoDB setup.
+- **[Local Development](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/local-development.md):** Tips for setting up a local development environment, including running a local Qdrant instance.
