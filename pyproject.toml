@@ -140,6 +140,8 @@ version_provider = "uv"
 update_changelog_on_bump = true
 major_version_zero = true
 annotated_tag = true
+gpg_sign = true
+
 [dependency-groups]
 dev = [
     "commitizen>=4.9.1",
