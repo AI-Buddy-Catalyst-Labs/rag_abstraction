@@ -3,7 +3,7 @@
 import json
 from typing import Dict
 
-from ..utils.exceptions import QueryGenerationError
+from insta_rag.utils.exceptions import QueryGenerationError
 
 
 class HyDEQueryGenerator:

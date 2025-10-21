@@ -6,14 +6,14 @@ from typing import Any, Dict, List, Optional
 
 from ..chunking.semantic import SemanticChunker
 from ..embedding.openai import OpenAIEmbedder
-from ..utils.exceptions import ValidationError, VectorDBError
+from insta_rag.utils.exceptions import ValidationError, VectorDBError
 from ..models.document import DocumentInput, SourceType
 from ..models.response import (
     AddDocumentsResponse,
     ProcessingStats,
     UpdateDocumentsResponse,
 )
-from ..utils.pdf_processing import extract_text_from_pdf
+from insta_rag.utils.pdf_processing import extract_text_from_pdf
 from ..vectordb.qdrant import QdrantVectorDB
 from .config import RAGConfig
 
@@ -325,7 +325,10 @@ class RAGClient:
             NoDocumentsFoundError: No documents match criteria (for delete/replace)
             VectorDBError: Qdrant operation failures
         """
-        from ..utils.exceptions import CollectionNotFoundError, NoDocumentsFoundError
+        from insta_rag.utils.exceptions import (
+            CollectionNotFoundError,
+            NoDocumentsFoundError,
+        )
 
         start_time = time.time()
         errors = []

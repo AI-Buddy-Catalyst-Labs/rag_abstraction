@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 
 import numpy as np
 
-from ..utils.exceptions import ChunkingError
+from insta_rag.utils.exceptions import ChunkingError
 from ..models.chunk import Chunk, ChunkMetadata
 from .base import BaseChunker
 from .utils import (

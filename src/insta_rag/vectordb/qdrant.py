@@ -2,8 +2,7 @@
 
 import uuid
 from typing import Any, Dict, List, Optional
-
-from ..utils.exceptions import CollectionNotFoundError, VectorDBError
+from insta_rag.utils.exceptions import CollectionNotFoundError, VectorDBError
 from .base import BaseVectorDB, VectorSearchResult
 
 
