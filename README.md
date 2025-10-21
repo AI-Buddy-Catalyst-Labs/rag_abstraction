@@ -48,16 +48,16 @@ if response.chunks:
 
 ## Documentation
 
-For detailed guides on installation, configuration, and advanced features, please see the **[Full Documentation](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/README.md)**.
+For detailed guides on installation, configuration, and advanced features, please see the **[Full Documentation](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki)**.
 
 Key sections include:
 
-- **[Installation Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/installation.md)**
-- **[Quickstart Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/quickstart.md)**
+- **[Installation Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/installation)**
+- **[Quickstart Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/quickstart)**
 - **Guides**
-  - [Document Management](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/document-management.md)
-  - [Advanced Retrieval](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/retrieval.md)
-  - [Storage Backends](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/storage-backends.md)
+  - [Document Management](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/guides/document-management)
+  - [Advanced Retrieval](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/guides/retrieval)
+  - [Storage Backends](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/guides/storage-backends)
 
 ## License
 
