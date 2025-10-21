@@ -11,3 +11,36 @@
     - Reranking with Cohere
     - Pluggable architecture for chunkers, embedders, and vector databases.
     - Hybrid storage with Qdrant and MongoDB.
+
+## v0.1.0-beta.1 (2025-10-20)
+
+### Feat
+
+- add pre-bump hooks for dependency management
+- add additional metadata to pyproject.toml
+
+### Fix
+
+- correct author metadata for pypi
+
+## v0.1.0-beta.0 (2025-10-20)
+
+### Feat
+
+- add GitHub Actions workflow for publishing to PyPI
+- add integration and smoke tests for RAGClient with environment variable checks
+- initial release of insta_rag library with comprehensive documentation and structure updates (#8)
+
+### Fix
+
+- update tag format in commitizen configuration to include 'v' prefix
+- update version retrieval to use importlib.metadata for dynamic versioning
+- add license files and update classifiers in pyproject.toml
+
+### Refactor
+
+- update project structure and clean up unused files (#5)
+- move utility scripts into utils directory
+- update exception imports to use utils.exceptions module
+- remove unused ssl import in QdrantVectorDB
+- move documentation into docs directory

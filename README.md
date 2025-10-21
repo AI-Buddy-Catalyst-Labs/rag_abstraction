@@ -48,17 +48,17 @@ if response.chunks:
 
 ## Documentation
 
-For detailed guides on installation, configuration, and advanced features, please see the **[Full Documentation](./docs/README.md)**.
+For detailed guides on installation, configuration, and advanced features, please see the **[Full Documentation](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/README.md)**.
 
 Key sections include:
 
-- **[Installation Guide](./docs/installation.md)**
-- **[Quickstart Guide](./docs/quickstart.md)**
+- **[Installation Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/installation.md)**
+- **[Quickstart Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/quickstart.md)**
 - **Guides**
-  - [Document Management](./docs/guides/document-management.md)
-  - [Advanced Retrieval](./docs/guides/retrieval.md)
-  - [Storage Backends](./docs/guides/storage-backends.md)
+  - [Document Management](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/document-management.md)
+  - [Advanced Retrieval](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/retrieval.md)
+  - [Storage Backends](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/storage-backends.md)
 
 ## License
 
-This project is licensed under the [MIT License](./LICENSE).
+This project is licensed under the [MIT License](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/LICENSE).

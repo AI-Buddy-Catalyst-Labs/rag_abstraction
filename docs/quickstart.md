@@ -11,7 +11,7 @@ First, ensure you have Python 3.9+ and install the library. Using `uv` is recomm
 uv pip install -e .
 ```
 
-For more detailed installation instructions, see the [Installation Guide](./installation.md).
+For more detailed installation instructions, see the [Installation Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/installation.md).
 
 ## 2. Environment Setup
 
@@ -89,7 +89,7 @@ else:
     print(f"✗ Errors: {response.errors}")
 ```
 
-For a detailed explanation of the ingestion process, see the [Document Management Guide](./guides/document-management.md).
+For a detailed explanation of the [Document Management Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/document-management.md).
 
 ## 5. Perform a Retrieval Query
 
@@ -143,7 +143,7 @@ quality_response = client.retrieve(
 )
 ```
 
-To learn more about the advanced retrieval pipeline, see the [Retrieval Guide](./guides/retrieval.md).
+To learn more about the advanced retrieval pipeline, see the [Retrieval Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/retrieval.md).
 
 ## 7. Document Management
 
@@ -160,4 +160,4 @@ delete_response = client.update_documents(
 print(f"Deleted {delete_response.chunks_deleted} chunks.")
 ```
 
-For more, see the [Document Management Guide](./guides/document-management.md).
+For more, see the [Document Management Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/guides/document-management.md).

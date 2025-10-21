@@ -1,15 +1,19 @@
 [project]
 name = "insta_rag"
-version = "0.1.0-beta.0"
+version = "0.1.0-beta.1"
 description = "A RAG (Retrieval-Augmented Generation) library for document processing and retrieval."
 authors = [
+    { name = "AI-Buddy-Catalyst-Labs", email = "chatbotgg1378@gmail.com" },
+]
+maintainers = [
     { name = "Aukik Aurnab", email = "aukikaurnabx@gmail.com" },
     { name = "Tahmidul Islam", email = "me@tahmidul612.com" },
     { name = "MD Ikramul Kayes", email = "ikramul.kayesgg@gmail.com" },
 ]
 requires-python = ">=3.9"
 readme = "README.md"
-license-files = ["LICENSE"]
+license = "MIT"
+keywords = ["rag", "retrieval-augmented-generation", "llm", "ai", "nlp"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -42,6 +46,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag"
+Documentation = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/docs/README.md"
+"Bug Tracker" = "https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/issues"
 
 [build-system]
 requires = ["uv_build>=0.9.4,<0.10.0"]
@@ -133,6 +139,13 @@ version_scheme = "semver2"
 version_provider = "uv"
 update_changelog_on_bump = true
 major_version_zero = true
+annotated_tag = true
+gpg_sign = true
+pre_bump_hooks = [
+    "uv lock",
+    "git add uv.lock",
+]
+
 [dependency-groups]
 dev = [
     "commitizen>=4.9.1",
