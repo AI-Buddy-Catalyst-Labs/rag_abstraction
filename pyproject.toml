@@ -1,6 +1,6 @@
 [project]
 name = "insta_rag"
-version = "0.1.0-beta.0"
+version = "0.1.0-beta.1"
 description = "A RAG (Retrieval-Augmented Generation) library for document processing and retrieval."
 authors = [
     { name = "AI-Buddy-Catalyst-Labs", email = "chatbotgg1378@gmail.com" },
