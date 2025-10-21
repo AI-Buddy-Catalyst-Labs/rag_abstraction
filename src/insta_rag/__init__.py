@@ -1,6 +1,8 @@
 """insta_rag - A modular RAG library for document processing and retrieval."""
 
-__version__ = "0.0.1"
+import importlib.metadata
+
+__version__ = importlib.metadata.version("insta_rag")
 
 from .core.client import RAGClient
 from .core.config import RAGConfig
