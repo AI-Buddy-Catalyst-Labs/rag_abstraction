@@ -90,7 +90,9 @@ class DocumentInput:
     def get_source_path(self) -> Optional[Path]:
         """Get source as Path if it's a file, None otherwise."""
         if self.source_type == SourceType.FILE:
-            return Path(self.source) if not isinstance(self.source, Path) else self.source
+            return (
+                Path(self.source) if not isinstance(self.source, Path) else self.source
+            )
         return None
 
     def get_source_text(self) -> Optional[str]:

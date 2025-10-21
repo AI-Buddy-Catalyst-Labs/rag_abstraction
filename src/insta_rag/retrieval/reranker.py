@@ -1,6 +1,5 @@
 """Reranking implementations for improving retrieval results."""
 
-import time
 import json
 from typing import Any, Dict, List, Tuple
 import requests
@@ -30,7 +29,7 @@ class BGEReranker(BaseReranker):
         api_key: str,
         api_url: str = "http://118.67.212.45:8000/rerank",
         normalize: bool = False,
-        timeout: int = 30
+        timeout: int = 30,
     ):
         """Initialize BGE reranker.
 
@@ -46,10 +45,7 @@ class BGEReranker(BaseReranker):
         self.timeout = timeout
 
     def rerank(
-        self,
-        query: str,
-        chunks: List[Tuple[str, Dict[str, Any]]],
-        top_k: int
+        self, query: str, chunks: List[Tuple[str, Dict[str, Any]]], top_k: int
     ) -> List[Tuple[int, float]]:
         """Rerank chunks based on relevance to query using BGE reranker.
 
@@ -75,22 +71,19 @@ class BGEReranker(BaseReranker):
             "query": query,
             "documents": documents,
             "top_k": min(top_k, len(documents)),  # Don't request more than available
-            "normalize": self.normalize
+            "normalize": self.normalize,
         }
 
         headers = {
             "accept": "application/json",
             "X-API-Key": self.api_key,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         try:
             # Make API request
             response = requests.post(
-                self.api_url,
-                json=request_data,
-                headers=headers,
-                timeout=self.timeout
+                self.api_url, json=request_data, headers=headers, timeout=self.timeout
             )
             response.raise_for_status()
 
@@ -130,10 +123,7 @@ class CohereReranker(BaseReranker):
         self.model = model
 
     def rerank(
-        self,
-        query: str,
-        chunks: List[Tuple[str, Dict[str, Any]]],
-        top_k: int
+        self, query: str, chunks: List[Tuple[str, Dict[str, Any]]], top_k: int
     ) -> List[Tuple[int, float]]:
         """Rerank chunks using Cohere API.
 
@@ -167,7 +157,7 @@ class LLMReranker(BaseReranker):
         api_key: str,
         base_url: str,
         model: str = "gpt-oss-120b",
-        timeout: int = 60
+        timeout: int = 60,
     ):
         """Initialize LLM reranker.
 
@@ -181,17 +171,10 @@ class LLMReranker(BaseReranker):
         self.base_url = base_url
         self.model = model
         self.timeout = timeout
-        self.client = OpenAI(
-            base_url=base_url,
-            api_key=api_key,
-            timeout=timeout
-        )
+        self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
 
     def rerank(
-        self,
-        query: str,
-        chunks: List[Tuple[str, Dict[str, Any]]],
-        top_k: int
+        self, query: str, chunks: List[Tuple[str, Dict[str, Any]]], top_k: int
     ) -> List[Tuple[int, float]]:
         """Rerank chunks based on relevance to query using LLM.
 
@@ -253,31 +236,28 @@ Return your response as a JSON array:"""
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a relevance scoring system that returns only valid JSON arrays. Never include explanations, only return the JSON array."
+                        "content": "You are a relevance scoring system that returns only valid JSON arrays. Never include explanations, only return the JSON array.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.0,
-                max_tokens=2000
+                max_tokens=2000,
             )
 
             # Extract the response content
             response_text = response.choices[0].message.content.strip()
 
             # Print the OSS model response for logging
-            print(f"\n{'='*80}")
-            print(f"OSS MODEL RESPONSE (gpt-oss-120b):")
-            print(f"{'='*80}")
+            print(f"\n{'=' * 80}")
+            print("OSS MODEL RESPONSE (gpt-oss-120b):")
+            print(f"{'=' * 80}")
             print(response_text)
-            print(f"{'='*80}\n")
+            print(f"{'=' * 80}\n")
 
             # Try to find JSON array in the response
             # Sometimes LLM might add extra text, so we look for the JSON array
-            start_idx = response_text.find('[')
-            end_idx = response_text.rfind(']') + 1
+            start_idx = response_text.find("[")
+            end_idx = response_text.rfind("]") + 1
 
             if start_idx == -1 or end_idx == 0:
                 raise ValueError("No JSON array found in LLM response")
@@ -312,6 +292,8 @@ Return your response as a JSON array:"""
             return reranked_results
 
         except json.JSONDecodeError as e:
-            raise Exception(f"LLM reranker failed to parse JSON response: {str(e)}. Response: {response_text[:200]}")
+            raise Exception(
+                f"LLM reranker failed to parse JSON response: {str(e)}. Response: {response_text[:200]}"
+            )
         except Exception as e:
             raise Exception(f"LLM reranker API request failed: {str(e)}")

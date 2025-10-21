@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from ..utils.exceptions import EmbeddingError
+from insta_rag.utils.exceptions import EmbeddingError
 from .base import BaseEmbedder
 
 

@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from ..utils.exceptions import ConfigurationError
+from insta_rag.utils.exceptions import ConfigurationError
 
 
 @dataclass

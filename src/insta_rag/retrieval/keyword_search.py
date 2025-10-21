@@ -78,14 +78,18 @@ class BM25Searcher:
                     mongodb_id = point.payload.get("mongodb_id")
                     if mongodb_id and self.rag_client.mongodb:
                         try:
-                            mongo_doc = self.rag_client.mongodb.get_chunk_content_by_mongo_id(
-                                str(mongodb_id)
+                            mongo_doc = (
+                                self.rag_client.mongodb.get_chunk_content_by_mongo_id(
+                                    str(mongodb_id)
+                                )
                             )
                             if mongo_doc:
                                 content = mongo_doc.get("content", "")
                                 mongodb_fetch_count += 1
                         except Exception as e:
-                            print(f"   Warning: Failed to fetch content from MongoDB for chunk {point.payload.get('chunk_id')}: {e}")
+                            print(
+                                f"   Warning: Failed to fetch content from MongoDB for chunk {point.payload.get('chunk_id')}: {e}"
+                            )
                             skipped_count += 1
                             continue
 
@@ -112,7 +116,9 @@ class BM25Searcher:
                 )
 
             if mongodb_fetch_count > 0:
-                print(f"   Fetched content for {mongodb_fetch_count} chunks from MongoDB")
+                print(
+                    f"   Fetched content for {mongodb_fetch_count} chunks from MongoDB"
+                )
             if skipped_count > 0:
                 print(f"   Skipped {skipped_count} chunks without content")
 
@@ -122,7 +128,7 @@ class BM25Searcher:
                 print(f"   ✓ BM25 corpus built: {len(self.corpus)} documents indexed")
             else:
                 self.bm25 = None
-                print(f"   ⚠️ BM25 corpus is empty - no documents indexed")
+                print("   ⚠️ BM25 corpus is empty - no documents indexed")
 
         except ImportError:
             print(
@@ -171,11 +177,7 @@ class BM25Searcher:
                     if filters:
                         match = True
                         for key, value in filters.items():
-                            if (
-                                value is not None
-                                and value != ""
-                                and value != {}
-                            ):
+                            if value is not None and value != "" and value != {}:
                                 if chunk_data["metadata"].get(key) != value:
                                     match = False
                                     break
