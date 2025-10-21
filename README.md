@@ -59,6 +59,16 @@ Key sections include:
   - [Advanced Retrieval](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/guides/retrieval)
   - [Storage Backends](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/wiki/guides/storage-backends)
 
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/CONTRIBUTING.md) for details on:
+
+- Setting up your development environment
+- Code quality tools and pre-commit hooks
+- Commit and branch naming conventions
+- Version management
+- Pull request process
+
 ## License
 
 This project is licensed under the [MIT License](https://github.com/AI-Buddy-Catalyst-Labs/insta_rag/blob/main/LICENSE).
