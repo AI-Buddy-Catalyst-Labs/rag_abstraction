@@ -12,8 +12,6 @@
     - Pluggable architecture for chunkers, embedders, and vector databases.
     - Hybrid storage with Qdrant and MongoDB.
 
-## v0.1.2 (2025-10-23)
-
 ## v0.1.1-beta.0 (2025-10-21)
 
 ### Fix
