@@ -994,7 +994,7 @@ wheels = [
 
 [[package]]
 name = "insta-rag"
-version = "0.1.1b0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "cohere" },
