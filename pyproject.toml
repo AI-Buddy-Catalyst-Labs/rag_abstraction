@@ -153,6 +153,7 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-mock>=3.14.0",
     "pytest-dotenv>=0.5.2",
+    "detect-secrets>=1.5.0",
 ]
 
 [tool.pytest.ini_options]
