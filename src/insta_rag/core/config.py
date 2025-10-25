@@ -62,7 +62,7 @@ class RerankingConfig:
     provider: str = "bge"  # bge, cohere, cross_encoder
     model: str = "BAAI/bge-reranker-v2-m3"
     api_key: Optional[str] = None
-    api_url: Optional[str] = "http://118.67.212.45:8000/rerank"  # For BGE reranker
+    api_url: Optional[str] = "https://api.novita.ai/openai/v1/rerank"  # For BGE reranker
     top_k: int = 20
     enabled: bool = True
     normalize: bool = False  # For BGE reranker
@@ -288,7 +288,7 @@ class RAGConfig:
                 model="BAAI/bge-reranker-v2-m3",
                 api_key=bge_api_key,
                 api_url=os.getenv(
-                    "BGE_RERANKER_URL", "http://118.67.212.45:8000/rerank"
+                    "BGE_RERANKER_URL", "https://api.novita.ai/openai/v1/rerank"
                 ),
                 enabled=True,
                 normalize=False,
