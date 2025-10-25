@@ -9,32 +9,32 @@ from .base import BaseReranker
 
 
 class BGEReranker(BaseReranker):
-    """BGE (BAAI) reranker using BAAI/bge-reranker-v2-m3 model.
+    """BGE (BAAI) reranker using BAAI/bge-reranker-v2-m3 model via Novita AI API.
 
-    This reranker uses a remote API endpoint that hosts the BGE reranker model.
+    This reranker uses the Novita AI API endpoint that hosts the BGE reranker model.
     The model is designed to rerank search results based on semantic relevance.
 
-    API Endpoint: http://118.67.212.45:8000/rerank
+    API Endpoint: https://api.novita.ai/openai/v1/rerank (Novita AI)
     Model: BAAI/bge-reranker-v2-m3
 
-    Important: BGE reranker produces negative scores where:
+    Important: Response scores are transformed from Novita's 0-1 range to internal -10 to +10 range:
+    - Novita returns scores between 0.0 and 1.0
+    - Transformed to -10.0 to +10.0 range for compatibility with existing system
     - Higher (less negative) scores = more relevant (e.g., -0.96 is better than -6.99)
-    - Typical score range: -10.0 to +10.0
     - Most relevant results: -3.0 to +5.0
-    - Use negative thresholds when filtering (e.g., score_threshold=-5.0)
     """
 
     def __init__(
         self,
         api_key: str,
-        api_url: str = "http://118.67.212.45:8000/rerank",
+        api_url: str = "https://api.novita.ai/openai/v1/rerank",
         normalize: bool = False,
         timeout: int = 30,
     ):
-        """Initialize BGE reranker.
+        """Initialize BGE reranker with Novita AI backend.
 
         Args:
-            api_key: API key for authentication
+            api_key: Novita AI API key
             api_url: Reranking API endpoint URL
             normalize: Whether to normalize scores (default: False)
             timeout: Request timeout in seconds (default: 30)
@@ -47,7 +47,7 @@ class BGEReranker(BaseReranker):
     def rerank(
         self, query: str, chunks: List[Tuple[str, Dict[str, Any]]], top_k: int
     ) -> List[Tuple[int, float]]:
-        """Rerank chunks based on relevance to query using BGE reranker.
+        """Rerank chunks based on relevance to query using Novita AI BGE reranker.
 
         Args:
             query: Query string
@@ -56,6 +56,7 @@ class BGEReranker(BaseReranker):
 
         Returns:
             List of (original_index, relevance_score) tuples, sorted by relevance
+            Scores are transformed from Novita's 0-1 range to internal -10 to +10 range
 
         Raises:
             Exception: If API request fails
@@ -66,22 +67,21 @@ class BGEReranker(BaseReranker):
         # Extract just the content from chunks
         documents = [chunk[0] for chunk in chunks]
 
-        # Prepare API request
+        # Prepare API request for Novita AI (uses "top_n" parameter)
         request_data = {
+            "model": "baai/bge-reranker-v2-m3",
             "query": query,
             "documents": documents,
-            "top_k": min(top_k, len(documents)),  # Don't request more than available
-            "normalize": self.normalize,
+            "top_n": min(top_k, len(documents)),  # Don't request more than available
         }
 
         headers = {
-            "accept": "application/json",
-            "X-API-Key": self.api_key,
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
 
         try:
-            # Make API request
+            # Make API request to Novita AI
             response = requests.post(
                 self.api_url, json=request_data, headers=headers, timeout=self.timeout
             )
@@ -90,12 +90,17 @@ class BGEReranker(BaseReranker):
             # Parse response
             result = response.json()
 
-            # Extract results: list of {document, score, index}
+            # Extract and transform results from Novita format
+            # Novita returns scores in 0-1 range, transform to -10 to +10 for compatibility
             reranked_results = []
             for item in result.get("results", []):
                 original_index = item["index"]
-                score = item["score"]
-                reranked_results.append((original_index, score))
+                # Novita returns "relevance_score" in 0-1 range
+                novita_score = item["relevance_score"]
+                # Transform to internal format: (score * 20) - 10
+                # This maps 0.0 -> -10.0, 0.5 -> 0.0, 1.0 -> 10.0
+                transformed_score = (novita_score * 20.0) - 10.0
+                reranked_results.append((original_index, transformed_score))
 
             return reranked_results
 
